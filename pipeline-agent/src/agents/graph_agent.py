@@ -62,21 +62,24 @@ class GraphAgent:
             return "知识图谱服务不可用，请稍后重试。"
 
         try:
-            if query_type == "fault_cause":
-                result = graph.query_fault_causes(query)
-            elif query_type == "standards":
-                result = graph.find_related_standards(query)
-            elif query_type == "equipment_chain":
-                result = graph.query_equipment_chain(query)
-            else:
-                if hasattr(graph, "query_fuzzy"):
-                    result = graph.query_fuzzy(query)
+            # P0-③ B4：graph_traversal_llm 开关开 → LLM 决策遍历；关 → 现有固定路径
+            result = self._maybe_graph_traversal(query, query_type, result_raw=None)
+            if result is None:
+                if query_type == "fault_cause":
+                    result = graph.query_fault_causes(query)
+                elif query_type == "standards":
+                    result = graph.find_related_standards(query)
+                elif query_type == "equipment_chain":
+                    result = graph.query_equipment_chain(query)
                 else:
-                    node_ids = graph.match_nodes_by_text(query)
-                    if not node_ids:
-                        result = {"message": f"未找到与 '{query}' 相关的知识图谱信息。"}
+                    if hasattr(graph, "query_fuzzy"):
+                        result = graph.query_fuzzy(query)
                     else:
-                        result = graph.get_subgraph_for_visualization(node_ids[0], depth=2)
+                        node_ids = graph.match_nodes_by_text(query)
+                        if not node_ids:
+                            result = {"message": f"未找到与 '{query}' 相关的知识图谱信息。"}
+                        else:
+                            result = graph.get_subgraph_for_visualization(node_ids[0], depth=2)
 
             if not result:
                 return f"未找到与 '{query}' 相关的知识图谱信息。"
@@ -92,6 +95,35 @@ class GraphAgent:
         except Exception as exc:  # noqa: BLE001
             logger.error("GraphAgent execute failed: {}", exc)
             return f"知识图谱查询失败: {exc}"
+
+    def _maybe_graph_traversal(
+        self, query: str, query_type: Optional[str]
+    ) -> Optional[Any]:
+        """P0-③ B4：graph_traversal_llm 开时走 LLM-in-the-loop 有界遍历。
+
+        开关关 / LLM 失败 / 图谱不可用 → 返回 None，调用方走原有固定路径，
+        保证逐字节不变。
+        """
+        try:
+            from src.knowledge_graph.graph_traversal import GraphTraversalPlanner
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("graph_traversal planner unavailable: {}", exc)
+            return None
+
+        planner = GraphTraversalPlanner()
+        if not planner.enabled():
+            return None
+
+        graph = self._get_graph()
+        if graph is None:
+            return None
+
+        node_ids = graph.match_nodes_by_text(query) or []
+        edge_types = ["cause", "solution", "REFERENCES", "CONTAINS"]
+        plan = planner.plan(query=query, node_ids=node_ids, edge_types=edge_types)
+        if plan is None:
+            return None
+        return planner.traverse(graph, query=query, plan=plan)
 
     @staticmethod
     def _format_raw_result(*, result: Any, query_type: Optional[str]) -> Any:

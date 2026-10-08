@@ -162,7 +162,13 @@ def save_hitl_response(request_id: str, response_data: dict, status: str = "resp
 
 
 def upsert_kg_node(node_id: str, node_type: str, name: str, description: str, properties: dict) -> None:
-    """Upsert one KG node row."""
+    """Upsert one KG node row.
+
+    DEPRECATED（P2 技术债，报告 §2.6/§4）：MySQL t_kg_node 为"规划了没接上"的
+    死代码——全仓无业务调用方，真图谱持久化在文件
+    knowledge_base/.registry/document_graph.json（A 类蒸馏走文档图）。函数保留
+    以给将来接上关系库时复用，但当前不启用；从 persistence/__init__.py 移除导出。
+    """
 
     sql = """
     INSERT INTO t_kg_node
@@ -193,7 +199,12 @@ def upsert_kg_edge(
     weight: float,
     properties: dict,
 ) -> None:
-    """Upsert one KG edge row."""
+    """Upsert one KG edge row.
+
+    DEPRECATED（P2 技术债，报告 §2.6/§4）：同 upsert_kg_node——MySQL t_kg_edge
+    无业务调用方，真图谱在 JSON 文件。函数保留待将来接上关系库时复用，当前
+    不启用；已从 persistence/__init__.py 移除导出。
+    """
 
     sql = """
     INSERT INTO t_kg_edge

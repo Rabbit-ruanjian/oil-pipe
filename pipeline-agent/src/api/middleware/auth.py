@@ -54,6 +54,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
     def _verify_token(self, token: str) -> bool:
+        # P2 技术债（报告 §4 auth 假校验，单独立项）：当前仅判断 token 非空，
+        # 未做签名/有效期/吊销校验。任何非空 bearer token 都会被接受。
+        # 实际风险受 dispatch() 第 33 行兜底约束——AUTH_REQUIRED_IN_PRODUCTION
+        # 关闭或 DEBUG 模式下整段校验被跳过；开启后才会走到这里，届时任何非空
+        # token 都通过。正确的 token 校验（与 Java 侧 Sa-Token 对齐 / 白名单 /
+        # 签名验证）待独立 issue 处理，本处保留 placeholder 不动。
         return bool(token)
 
     def _verify_internal_key(self, key: str) -> bool:
