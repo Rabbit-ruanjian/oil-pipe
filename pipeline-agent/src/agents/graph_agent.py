@@ -63,7 +63,7 @@ class GraphAgent:
 
         try:
             # P0-③ B4：graph_traversal_llm 开关开 → LLM 决策遍历；关 → 现有固定路径
-            result = self._maybe_graph_traversal(query, query_type, result_raw=None)
+            result = self._maybe_graph_traversal(query, query_type)
             if result is None:
                 if query_type == "fault_cause":
                     result = graph.query_fault_causes(query)

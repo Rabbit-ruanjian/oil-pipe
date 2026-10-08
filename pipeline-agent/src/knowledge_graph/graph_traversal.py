@@ -184,17 +184,76 @@ class GraphTraversalPlanner:
             "path_count": len(visited),
         }
 
-    @staticmethod
-    def _neighbors(graph: Any, node: str, edge_types: List[str]) -> List[str]:
+    # LLM 计划里的概念边类型 → builder 实际边 type 值的映射
+    # （builder._load_fault_causal_data 用 caused_by/solved_by；
+    #  文档图用 references/contains；设备图用 installed/transports 等）。
+    _CONCEPTUAL_EDGE_MAP = {
+        "cause": ("cause", "caused_by", "causes"),
+        "solution": ("solution", "solved_by", "solves", "remedy"),
+        "reference": ("reference", "references", "mention"),
+        "contains": ("contains",),
+        "step": ("step", "next", "order", "sequence"),
+    }
+
+    @classmethod
+    def _edge_type_matches(cls, actual_rel: str, conceptual_types: List[str]) -> bool:
+        """判断实际边类型 actual_rel 是否命中 LLM 计划里的概念类型。
+
+        - 概念类型在映射表里 → 展开成候选实际值集合，命中任一即匹配
+        - 概念类型不在映射表（自定义/未知）→ 双向子串 OR 前缀兜底
+        - 没传概念类型（None/空）→ 全部匹配
+        """
+        if not conceptual_types:
+            return True
+        actual = str(actual_rel or "").lower()
+        allowed: set[str] = set()
+        for concept in conceptual_types:
+            c = str(concept).lower()
+            if c in cls._CONCEPTUAL_EDGE_MAP:
+                allowed.update(cls._CONCEPTUAL_EDGE_MAP[c])
+            else:
+                # 未映射概念：直接允许（双向子串 OR 包含）
+                allowed.add(c)
+        for cand in allowed:
+            if cand in actual or actual in cand:
+                return True
+            # 前缀兜底：共享词干（取概念名 4 字符）
+            stem = cand[:4]
+            if stem and stem in actual[:6]:
+                return True
+        return False
+
+    @classmethod
+    def _neighbors(cls, graph: Any, node: str, edge_types: List[str]) -> List[str]:
         """Best-effort neighbour lookup against the knowledge-graph builder.
 
-        Tries graph.neighbors / graph.outgoing_edges patterns used by the
-        networkx-backed builder; returns [] when the API is absent so the
-        traversal degrades gracefully instead of raising.
+        专家图是 networkx.DiGraph（builder.graph），节点/边属性存在
+        node["id"] / edge["relation"]（见 builder._load_fault_causal_data）。
+        优先走 graph.graph（DiGraph）.successors + edge data 过滤 relation；
+        回退到 graph.neighbors / 任意相邻 API；再回退到原始 DiGraph 直接访问。
+        任何 API 缺失都返回 []，遍历降级为只含起点，绝不抛异常。
         """
         if graph is None:
             return []
-        for method in ("outgoing_edges", "neighbors", "adjacent_nodes"):
+
+        nx_graph = getattr(graph, "graph", None)
+        if nx_graph is not None and hasattr(nx_graph, "successors"):
+            try:
+                out: List[str] = []
+                for _, succ, data in nx_graph.out_edges(node, data=True):
+                    # builder._load_fault_causal_data 的边 data 用 "type" 字段，
+                    # 实际值为 "caused_by"/"solved_by"/"references" 等；
+                    # LLM 计划的 edge_types 常给概念名（"cause"/"solution"），
+                    # 故做"双向子串包含"语义匹配，避免概念名与具体类型名错位。
+                    rel = str(data.get("type") or data.get("relation") or data.get("edge_type") or "").lower()
+                    if edge_types and not cls._edge_type_matches(rel, edge_types):
+                        continue
+                    out.append(str(succ))
+                return out
+            except Exception:  # noqa: BLE001
+                pass
+
+        for method in ("outgoing_edges", "neighbors", "adjacent_nodes", "get_neighbours"):
             fn = getattr(graph, method, None)
             if callable(fn):
                 try:
@@ -202,7 +261,6 @@ class GraphTraversalPlanner:
                     out: List[str] = []
                     for item in raw:
                         if isinstance(item, dict):
-                            # honour edge_type filter when present
                             et = item.get("edge_type") or item.get("relation")
                             if edge_types and et not in edge_types:
                                 continue

@@ -37,16 +37,28 @@ def _default_llm_call(prompt: ChatPromptTemplate, values: dict, *, llm: ChatOpen
     """
     from src.llm import LLMClientError, get_llm_client
 
-    # 渲染 ChatPromptTemplate（system+user）为纯文本：先 format 成 user 串，
-    # system 若存在则透传给 complete() 的 system 参数。
-    user_text = prompt.format(**values)
-    system_text: Optional[str] = None
-    if getattr(prompt, "prompt_type", None) is not None:
-        # 仅当 template 含独立 system 消息时提取；普通单段 template 保持 system=None
+    # 渲染 ChatPromptTemplate 为纯文本 + 可选 system 消息：
+    # ChatPromptTemplate 没有 str.format 语义，必须用 format_messages 取消息列表；
+    # 首条 system 透传给 complete() 的 system 参数，末条 user 作为 prompt 主体。
+    try:
         msgs = prompt.format_messages(**values)
+    except Exception:
+        msgs = []
+    system_text: Optional[str] = None
+    user_text = ""
+    if msgs:
         if len(msgs) > 1 and getattr(msgs[0], "type", None) == "system":
-            system_text = str(getattr(msgs[0], "content", ""))
-            user_text = str(getattr(msgs[-1], "content", user_text))
+            system_text = str(getattr(msgs[0], "content", "")).strip() or None
+        user_text = str(getattr(msgs[-1], "content", ""))
+        if not user_text:
+            # 兜底：把非 system 消息拼成单段
+            user_text = "\n".join(
+                str(getattr(m, "content", "")) for m in msgs
+                if getattr(m, "type", "user") != "system"
+            )
+    if not user_text:
+        logger.warning("multi-query LLM 切点：prompt 渲染为空，降级跳过")
+        return ""
     try:
         return get_llm_client().complete(
             user_text,

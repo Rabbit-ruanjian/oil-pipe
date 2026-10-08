@@ -147,3 +147,40 @@ def test_traverse_bounded_bfs() -> None:
     assert "更换叶轮" in out["reached"]
     # visited = start + 2 causes + 1 solution = 4
     assert out["path_count"] == 4
+
+
+# ===========================================================================
+# 真实 builder 图：fault_001 沿 caused_by→solved_by 多跳因果链遍历
+# （防回归：概念边类型 cause/solution 匹配 builder 实际边 caused_by/solved_by）
+# ===========================================================================
+
+
+def test_traverse_on_real_builder_graph_causal_chain() -> None:
+    from src.knowledge_graph.builder import get_knowledge_graph_builder
+
+    graph = get_knowledge_graph_builder()
+    graph.build_from_data()
+    planner = _planner_with(FakeLLMClient())
+    plan = {"start_node_id": "fault_001", "edge_types": ["cause", "solution"], "max_hops": 2}
+    out = planner.traverse(graph, query="泵站出口压力下降", plan=plan)
+    reached = out["reached"]
+    # 第 1 跳：fault_001 → cause_001~004（caused_by 边）
+    assert any("cause" in n for n in reached)
+    # 第 2 跳：cause_xxx → sol_xxx（solved_by 边）
+    assert any("sol" in n for n in reached)
+    assert out["path_count"] >= 2
+
+
+def test_edge_type_matching_conceptual_to_actual() -> None:
+    """概念边类型与 builder 实际边 type 的匹配规则（防回归）。"""
+    from src.knowledge_graph.graph_traversal import GraphTraversalPlanner as P
+
+    assert P._edge_type_matches("caused_by", ["cause", "solution"]) is True
+    assert P._edge_type_matches("solved_by", ["cause", "solution"]) is True
+    assert P._edge_type_matches("references", ["reference"]) is True
+    assert P._edge_type_matches("contains", ["contains"]) is True
+    # 不匹配的类型（references 边不算 cause/solution）
+    assert P._edge_type_matches("references", ["cause", "solution"]) is False
+    # 空概念类型 → 全部匹配
+    assert P._edge_type_matches("anything", []) is True
+
