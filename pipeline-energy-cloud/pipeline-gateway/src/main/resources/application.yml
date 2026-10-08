@@ -1,0 +1,84 @@
+server:
+  port: 8080
+
+spring:
+  config:
+    import: "optional:nacos:${PIPELINE_NACOS_SERVER_ADDR:localhost:8848}"
+  application:
+    name: pipeline-gateway
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${PIPELINE_NACOS_SERVER_ADDR:localhost:8848}
+        username: ${PIPELINE_NACOS_USERNAME:}
+        password: ${PIPELINE_NACOS_PASSWORD:}
+      config:
+        server-addr: ${PIPELINE_NACOS_SERVER_ADDR:localhost:8848}
+        username: ${PIPELINE_NACOS_USERNAME:}
+        password: ${PIPELINE_NACOS_PASSWORD:}
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+      routes:
+        - id: pipeline-auth
+          uri: lb://pipeline-auth
+          predicates:
+            - Path=/auth/**
+        - id: pipeline-system
+          uri: lb://pipeline-system
+          predicates:
+            - Path=/system/**
+          filters:
+            - StripPrefix=1
+        - id: pipeline-data
+          uri: lb://pipeline-data
+          predicates:
+            - Path=/data/**
+          filters:
+            - StripPrefix=1
+        - id: pipeline-calculation
+          uri: lb://pipeline-calculation
+          predicates:
+            - Path=/calculation/**
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 10s
+      lettuce:
+        pool:
+          min-idle: 0
+          max-idle: 8
+          max-active: 8
+          max-wait: -1ms
+
+sa-token:
+  token-name: satoken
+  timeout: 2592000
+  activity-timeout: -1
+  is-concurrent: true
+  is-share: false
+  token-style: uuid
+  is-log: false
+
+logging:
+  level:
+    com.pipeline.gateway: DEBUG

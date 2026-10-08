@@ -1,0 +1,52 @@
+server:
+  port: 9400
+
+spring:
+  application:
+    name: pipeline-data
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${PIPELINE_DB_HOST:127.0.0.1}:${PIPELINE_DB_PORT:3306}/pipeline_cloud?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8
+    username: ${PIPELINE_DB_USERNAME:root}
+    password: ${PIPELINE_DB_PASSWORD:root}
+  cloud:
+    nacos:
+      discovery:
+        server-addr: ${PIPELINE_NACOS_SERVER_ADDR:localhost:8848}
+        username: ${PIPELINE_NACOS_USERNAME:}
+        password: ${PIPELINE_NACOS_PASSWORD:}
+      config:
+        server-addr: ${PIPELINE_NACOS_SERVER_ADDR:localhost:8848}
+        username: ${PIPELINE_NACOS_USERNAME:}
+        password: ${PIPELINE_NACOS_PASSWORD:}
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*Mapper.xml
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    com.pipeline.data: DEBUG
+
+knowledge:
+  document:
+    agent-base-url: ${PIPELINE_AGENT_BASE_URL:http://localhost:8100}
+    upload-path: ${PIPELINE_KB_AGENT_UPLOAD_PATH:/api/v1/knowledge/upload}
+    delete-path: ${PIPELINE_KB_AGENT_DELETE_PATH:/api/v1/knowledge/document/{docId}}
+    internal-token: ${PIPELINE_INTERNAL_SERVICE_TOKEN:}
+    internal-key: ${PIPELINE_INTERNAL_API_KEY:}
+    connect-timeout-ms: ${PIPELINE_KB_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${PIPELINE_KB_READ_TIMEOUT_MS:300000}
+    legacy-base-path: ${PIPELINE_KB_LEGACY_BASE_PATH:}
+    minio:
+      endpoint: ${PIPELINE_KB_MINIO_ENDPOINT:http://127.0.0.1:9000}
+      access-key: ${PIPELINE_KB_MINIO_ACCESS_KEY:admin}
+      secret-key: ${PIPELINE_KB_MINIO_SECRET_KEY:password}
+      bucket: ${PIPELINE_KB_MINIO_BUCKET:knowledge-base}

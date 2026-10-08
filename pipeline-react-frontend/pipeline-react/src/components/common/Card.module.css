@@ -1,0 +1,218 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  Card - 响应式卡片样式
+ *  Design: Apple HIG + Linear + Stripe Light Theme
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.card.hoverable {
+  cursor: pointer;
+}
+
+.card.hoverable:hover {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 尺寸变体
+ * ───────────────────────────────────────────────────────────────── */
+.default .header,
+.default .body {
+  padding: var(--space-6);
+}
+
+.small .header,
+.small .body {
+  padding: var(--space-4);
+}
+
+.large .header,
+.large .body {
+  padding: var(--space-8);
+}
+
+.noPadding .body {
+  padding: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 头部区域
+ * ───────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.headerBorder {
+  padding-bottom: var(--space-4) !important;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.headerBorder + .body {
+  padding-top: var(--space-5);
+}
+
+.headerContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: var(--text-lg);
+  font-weight: var(--font-semibold);
+  color: var(--text-primary);
+  margin: 0;
+  line-height: var(--leading-tight);
+}
+
+.subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin: var(--space-1) 0 0 0;
+  line-height: var(--leading-normal);
+}
+
+.extra {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 内容区域
+ * ───────────────────────────────────────────────────────────────── */
+.body {
+  /* 默认样式已在尺寸变体中定义 */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 响应式断点
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 2K+ 大屏幕 */
+@media (min-width: 1536px) {
+  .large .header,
+  .large .body {
+    padding: var(--space-10);
+  }
+}
+
+/* 平板横屏 */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .default .header,
+  .default .body {
+    padding: var(--space-5);
+  }
+
+  .large .header,
+  .large .body {
+    padding: var(--space-6);
+  }
+
+  .title {
+    font-size: var(--text-base);
+  }
+}
+
+/* 平板竖屏 */
+@media (min-width: 640px) and (max-width: 767px) {
+  .card {
+    border-radius: var(--radius-lg);
+  }
+
+  .default .header,
+  .default .body {
+    padding: var(--space-5);
+  }
+
+  .small .header,
+  .small .body {
+    padding: var(--space-3);
+  }
+
+  .large .header,
+  .large .body {
+    padding: var(--space-5);
+  }
+}
+
+/* 移动端 */
+@media (max-width: 639px) {
+  .card {
+    border-radius: var(--radius-lg);
+  }
+
+  .default .header,
+  .default .body {
+    padding: var(--space-4);
+  }
+
+  .small .header,
+  .small .body {
+    padding: var(--space-3);
+  }
+
+  .large .header,
+  .large .body {
+    padding: var(--space-4);
+  }
+
+  .header {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .extra {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .title {
+    font-size: var(--text-base);
+  }
+
+  .subtitle {
+    font-size: var(--text-xs);
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 374px) {
+  .card {
+    border-radius: var(--radius-md);
+  }
+
+  .default .header,
+  .default .body {
+    padding: var(--space-3);
+  }
+
+  .small .header,
+  .small .body {
+    padding: var(--space-2);
+  }
+}
+
+/* 动画减弱 */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+
+  .card.hoverable:hover {
+    transform: none;
+  }
+}

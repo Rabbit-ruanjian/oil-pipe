@@ -1,0 +1,6 @@
+name = "reflexion"
+version = "1.0.0"
+description = "失败反思与恢复策略 skill"
+
+[metadata]
+phase = "phase-1"

@@ -1,0 +1,50 @@
+﻿{
+  "faults": [
+    {
+      "id": "fault_001",
+      "name": "泵站出口压力持续下降",
+      "type": "fault",
+      "affected_parameters": ["outlet_pressure", "flow_rate"],
+      "causes": [
+        {
+          "id": "cause_001",
+          "name": "泵叶轮磨损",
+          "probability": 0.35,
+          "evidence_parameters": ["pump_efficiency_drop", "vibration_increase"],
+          "solutions": [
+            {"id": "sol_001", "name": "更换泵叶轮", "cost": "high", "downtime": "8h"},
+            {"id": "sol_002", "name": "叶轮修复", "cost": "medium", "downtime": "4h"}
+          ]
+        },
+        {
+          "id": "cause_002",
+          "name": "管道结蜡阻力增大",
+          "probability": 0.30,
+          "evidence_parameters": ["friction_loss_increase", "temperature_drop"],
+          "solutions": [
+            {"id": "sol_003", "name": "清管作业", "cost": "medium", "downtime": "12h"},
+            {"id": "sol_004", "name": "加注降凝剂", "cost": "low", "downtime": "0h"}
+          ]
+        },
+        {
+          "id": "cause_003",
+          "name": "油品粘度升高",
+          "probability": 0.20,
+          "evidence_parameters": ["viscosity_increase", "inlet_temperature_drop"],
+          "solutions": [
+            {"id": "sol_005", "name": "提高加热炉温度", "cost": "low", "downtime": "0h"}
+          ]
+        },
+        {
+          "id": "cause_004",
+          "name": "密封泄漏",
+          "probability": 0.15,
+          "evidence_parameters": ["leakage_detected", "pressure_fluctuation"],
+          "solutions": [
+            {"id": "sol_006", "name": "更换密封件", "cost": "low", "downtime": "2h"}
+          ]
+        }
+      ]
+    }
+  ]
+}

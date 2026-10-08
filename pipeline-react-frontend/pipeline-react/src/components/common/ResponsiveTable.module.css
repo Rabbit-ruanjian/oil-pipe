@@ -1,0 +1,12 @@
+.container {
+  container-type: inline-size;
+  container-name: table-container;
+  width: 100%;
+}
+
+.cardList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--space-3);
+}
+

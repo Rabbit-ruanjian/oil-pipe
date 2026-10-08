@@ -1,0 +1,119 @@
+﻿/* Container Queries 鏅鸿兘甯冨眬绯荤粺 */
+
+/* 1. 瀹瑰櫒澹版槑 */
+.container-responsive {
+  container-type: inline-size;
+  container-name: main-content;
+}
+
+.container-card {
+  container-type: inline-size;
+  container-name: card;
+}
+
+.container-chart {
+  container-type: inline-size;
+  container-name: chart;
+}
+
+/* 2. 鏅鸿兘鑷€傚簲缃戞牸 - 鏃犳柇鐐硅嚜鍔ㄥ垪鏁?*/
+.grid-auto-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--space-6);
+}
+
+.grid-auto-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: var(--space-6);
+}
+
+.grid-auto-devices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-4);
+}
+
+.grid-auto-data-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: var(--space-4);
+}
+
+.grid-full-width {
+  grid-column: 1 / -1;
+}
+
+/* 3. Container Query 鍝嶅簲瑙勫垯 */
+@container main-content (max-width: 640px) {
+  .cq-stack-mobile {
+    flex-direction: column !important;
+  }
+
+  .cq-hide-mobile {
+    display: none !important;
+  }
+
+  .cq-full-mobile {
+    width: 100% !important;
+  }
+
+  .cq-text-sm-mobile {
+    font-size: var(--text-sm) !important;
+  }
+
+  .cq-gap-sm-mobile {
+    gap: var(--space-3) !important;
+  }
+
+  .cq-padding-sm-mobile {
+    padding: var(--space-4) !important;
+  }
+}
+
+@container main-content (min-width: 641px) and (max-width: 1024px) {
+  .cq-cols-2-tablet {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@container main-content (min-width: 1025px) {
+  .cq-cols-4-desktop {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+@container card (max-width: 320px) {
+  .cq-card-compact {
+    padding: var(--space-3) !important;
+  }
+
+  .cq-card-compact .cq-card-title {
+    font-size: var(--text-sm) !important;
+  }
+
+  .cq-card-compact .cq-card-value {
+    font-size: var(--text-2xl) !important;
+  }
+}
+
+@container chart (max-width: 480px) {
+  .cq-chart-compact {
+    height: 220px !important;
+  }
+}
+
+@container chart (min-width: 481px) and (max-width: 800px) {
+  .cq-chart-medium {
+    height: 300px !important;
+  }
+}
+
+@container chart (min-width: 801px) {
+  .cq-chart-large {
+    height: 380px !important;
+  }
+}
+
+

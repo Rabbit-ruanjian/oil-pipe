@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * ═══════════════════════════════════════════════════════════════════
+ *  全局样式入口
+ *  油气管道智能监测系统 - Apple风格浅色设计
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 基础重置
+ * ═══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+               'SF Pro Text', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  line-height: 1.5;
+  color: #1D1D1F;
+  background: #FAFAFA;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 链接样式
+ * ═══════════════════════════════════════════════════════════════════ */
+a {
+  color: #007AFF;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: #0056B3;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 按钮重置
+ * ═══════════════════════════════════════════════════════════════════ */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+button:focus-visible {
+  outline: 2px solid #007AFF;
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 输入框重置
+ * ═══════════════════════════════════════════════════════════════════ */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 列表重置
+ * ═══════════════════════════════════════════════════════════════════ */
+ul, ol {
+  list-style: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 图片重置
+ * ═══════════════════════════════════════════════════════════════════ */
+img, video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 滚动条美化 - 浅色主题
+ * ═══════════════════════════════════════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 选择文本样式
+ * ═══════════════════════════════════════════════════════════════════ */
+::selection {
+  background: #007AFF;
+  color: white;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * 无障碍 - 减少动效
+ * ═══════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-theme='light'] .report-light-surface {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 48%, #f3f7fc 100%) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  box-shadow: 0 24px 72px rgba(148, 163, 184, 0.18) !important;
+}
+
+[data-theme='light'] .report-light-surface .text-white {
+  color: #0f172a !important;
+}
+
+[data-theme='light'] .report-light-surface .text-slate-100 {
+  color: #1e293b !important;
+}
+
+[data-theme='light'] .report-light-surface .text-slate-200 {
+  color: #334155 !important;
+}
+
+[data-theme='light'] .report-light-surface .text-slate-300 {
+  color: #475569 !important;
+}
+
+[data-theme='light'] .report-light-surface .text-slate-400,
+[data-theme='light'] .report-light-surface .text-slate-500 {
+  color: #64748b !important;
+}
+
+[data-theme='light'] .report-light-surface .border-white\/8,
+[data-theme='light'] .report-light-surface .border-white\/10,
+[data-theme='light'] .report-light-surface .border-white\/12 {
+  border-color: rgba(148, 163, 184, 0.24) !important;
+}
+
+[data-theme='light'] .report-light-surface .border-cyan-300\/12,
+[data-theme='light'] .report-light-surface .border-cyan-300\/15,
+[data-theme='light'] .report-light-surface .border-cyan-300\/20,
+[data-theme='light'] .report-light-surface .border-cyan-200\/10 {
+  border-color: rgba(14, 165, 233, 0.22) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-white\/5 {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-slate-950\/30,
+[data-theme='light'] .report-light-surface .bg-slate-950\/35,
+[data-theme='light'] .report-light-surface .bg-slate-950\/40,
+[data-theme='light'] .report-light-surface .bg-slate-950\/60 {
+  background: #f8fafc !important;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.18);
+}
+
+[data-theme='light'] .report-light-surface .bg-cyan-400\/5 {
+  background: rgba(14, 165, 233, 0.06) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-cyan-400\/8,
+[data-theme='light'] .report-light-surface .bg-cyan-400\/10 {
+  background: rgba(14, 165, 233, 0.08) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-emerald-500\/8 {
+  background: rgba(16, 185, 129, 0.08) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-amber-500\/8 {
+  background: rgba(245, 158, 11, 0.1) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-cyan-500\/8 {
+  background: rgba(6, 182, 212, 0.1) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-cyan-400\/6 {
+  background: rgba(14, 165, 233, 0.06) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-\[linear-gradient\(135deg\,rgba\(34\,211\,238\,0\.14\)\,rgba\(15\,23\,42\,0\.92\)\)\] {
+  background: linear-gradient(135deg, rgba(186, 230, 253, 0.6), rgba(255, 255, 255, 0.96)) !important;
+}
+
+[data-theme='light'] .report-light-surface .bg-white\/8 {
+  background: rgba(148, 163, 184, 0.16) !important;
+}
+
+.report-raw-code {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'SFMono-Regular', 'SF Mono',
+    'PingFang SC', 'HarmonyOS Sans SC', 'MiSans', 'Microsoft YaHei UI',
+    'Microsoft YaHei', 'Noto Sans CJK SC', 'Source Han Sans SC',
+    'Consolas', 'Liberation Mono', 'Menlo', monospace;
+  font-size: 13px;
+  line-height: 1.75;
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+}

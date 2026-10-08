@@ -1,0 +1,32 @@
+.panel {
+  display: grid;
+  gap: 8px;
+}
+
+.toggle {
+  justify-self: start;
+  padding-left: 0;
+}
+
+.preview {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.content {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 12px;
+  line-height: 1.6;
+  max-height: 220px;
+  overflow: auto;
+}

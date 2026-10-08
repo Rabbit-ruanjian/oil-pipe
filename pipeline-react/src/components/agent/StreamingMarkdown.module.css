@@ -1,0 +1,16 @@
+.streamingContainer {
+  /* No extra spacing — inherits from parent .assistantMsg */
+}
+
+.block {
+  animation: fadeIn 0.15s ease-in;
+}
+
+.activeBlock {
+  animation: fadeIn 0.1s ease-in;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0.6; }
+  to   { opacity: 1; }
+}

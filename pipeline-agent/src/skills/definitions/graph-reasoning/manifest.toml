@@ -1,0 +1,6 @@
+name = "graph-reasoning"
+version = "1.0.0"
+description = "知识图谱推理与关系解释 skill"
+
+[metadata]
+phase = "phase-4"

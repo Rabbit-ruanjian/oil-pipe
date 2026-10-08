@@ -1,0 +1,34 @@
+﻿{
+  "pipelines": [
+    {
+      "id": "pipeline_changqing",
+      "name": "长庆原油管道",
+      "length_km": 486,
+      "oil_property": {
+        "id": "oil_changqing",
+        "name": "长庆原油",
+        "density": 860,
+        "viscosity": 0.000045
+      },
+      "pump_stations": [
+        {
+          "id": "station_1",
+          "name": "首站",
+          "index": 1,
+          "pumps": [
+            {"id": "pump_1a", "name": "首站主泵A", "model": "ZMI480", "head": 235},
+            {"id": "pump_1b", "name": "首站主泵B", "model": "ZMI375", "head": 180}
+          ]
+        },
+        {
+          "id": "station_2",
+          "name": "二号站",
+          "index": 2,
+          "pumps": [
+            {"id": "pump_2a", "name": "二号站主泵A", "model": "ZMI480", "head": 235}
+          ]
+        }
+      ]
+    }
+  ]
+}

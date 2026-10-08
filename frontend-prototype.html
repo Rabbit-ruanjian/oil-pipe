@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>管脉 · 管道能耗运行驾驶舱（视觉原型）</title>
+  <style>
+    :root {
+      --ink: #102a43;
+      --muted: #6b7c93;
+      --line: #d9e2ec;
+      --paper: #f7f9fc;
+      --card: #ffffff;
+      --blue: #1677ff;
+      --teal: #0e9f9a;
+      --amber: #d9822b;
+      --red: #d64545;
+      --shadow: 0 18px 42px rgba(16, 42, 67, .08);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    button { font: inherit; }
+    .app { min-height: 100vh; display: grid; grid-template-columns: 244px 1fr; }
+    .sidebar { background: #102a43; color: #d9e2ec; padding: 24px 16px; display: flex; flex-direction: column; gap: 28px; }
+    .brand { display: flex; align-items: center; gap: 12px; padding: 0 10px; }
+    .brand-mark { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: #f0b429; color: #102a43; font-weight: 800; }
+    .brand strong { display: block; color: #fff; letter-spacing: .05em; }
+    .brand small { color: #9fb3c8; font-size: 11px; }
+    .nav-label { color: #829ab1; font-size: 11px; letter-spacing: .14em; padding: 0 12px; margin: 0 0 8px; }
+    .nav { display: grid; gap: 5px; }
+    .nav button { cursor: pointer; border: 0; background: transparent; color: #bcccdc; border-radius: 9px; text-align: left; padding: 12px; display: flex; align-items: center; gap: 11px; }
+    .nav button:hover, .nav button.active { background: #1d4d73; color: #fff; }
+    .nav .ico { width: 22px; text-align: center; font-size: 16px; }
+    .side-footer { margin-top: auto; border-top: 1px solid #244b68; padding: 16px 10px 0; color: #9fb3c8; font-size: 12px; line-height: 1.7; }
+    .main { min-width: 0; }
+    .topbar { height: 76px; display: flex; justify-content: space-between; align-items: center; padding: 0 34px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.88); }
+    .crumb { color: var(--muted); font-size: 13px; }
+    .crumb b { color: var(--ink); font-size: 18px; margin-right: 12px; }
+    .top-actions { display: flex; align-items: center; gap: 18px; }
+    .status { display: flex; align-items: center; gap: 7px; color: #1f7a5b; font-size: 12px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #27ab75; box-shadow: 0 0 0 4px #def7ec; }
+    .avatar { width: 34px; height: 34px; display: grid; place-items: center; color: #fff; background: #1677ff; border-radius: 50%; font-weight: 700; }
+    .content { max-width: 1480px; margin: 0 auto; padding: 34px; }
+    .hero { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 26px; }
+    .eyebrow { color: var(--blue); font-size: 12px; font-weight: 700; letter-spacing: .12em; margin-bottom: 9px; }
+    h1 { margin: 0; font-size: clamp(26px, 3vw, 38px); letter-spacing: -.04em; }
+    .hero p { color: var(--muted); margin: 10px 0 0; max-width: 660px; line-height: 1.7; }
+    .hero-tools { display: flex; gap: 10px; flex-wrap: wrap; justify-content: end; }
+    .btn { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 8px; padding: 10px 14px; cursor: pointer; font-weight: 600; }
+    .btn.primary { background: var(--blue); color: #fff; border-color: var(--blue); box-shadow: 0 8px 20px rgba(22,119,255,.2); }
+    .btn:hover { transform: translateY(-1px); }
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    .stat, .card { background: var(--card); border: 1px solid #e6edf3; border-radius: 12px; box-shadow: var(--shadow); }
+    .stat { padding: 19px 20px; position: relative; overflow: hidden; }
+    .stat::after { content: ""; width: 74px; height: 74px; border-radius: 50%; position: absolute; right: -25px; top: -25px; background: #eaf3ff; }
+    .stat small { display: block; color: var(--muted); margin-bottom: 10px; }
+    .stat strong { font-size: 27px; letter-spacing: -.04em; }
+    .stat em { color: var(--teal); font-style: normal; font-size: 12px; margin-left: 7px; }
+    .layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(310px, .85fr); gap: 18px; }
+    .card { padding: 22px; }
+    .card-head { display: flex; align-items: start; justify-content: space-between; gap: 14px; margin-bottom: 20px; }
+    .card-head h2 { margin: 0; font-size: 17px; }
+    .card-head p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+    .tag { background: #eef6ff; color: #1769aa; border-radius: 5px; padding: 5px 8px; font-size: 11px; white-space: nowrap; }
+    .chart-wrap { height: 248px; position: relative; border-radius: 9px; background: linear-gradient(#fff, #f9fbfd); overflow: hidden; }
+    .gridline { position: absolute; left: 0; right: 0; border-top: 1px dashed #dce6ef; }
+    .gridline:nth-child(1) { top: 22%; } .gridline:nth-child(2) { top: 46%; } .gridline:nth-child(3) { top: 70%; } .gridline:nth-child(4) { top: 94%; }
+    .axis { position: absolute; left: 0; right: 0; bottom: 4px; display: flex; justify-content: space-between; color: #829ab1; font-size: 10px; }
+    .chart-svg { position: absolute; inset: 12px 10px 27px; width: calc(100% - 20px); height: calc(100% - 39px); }
+    .legend { display: flex; gap: 18px; font-size: 12px; color: var(--muted); margin-top: 12px; }
+    .legend i { width: 9px; height: 9px; display: inline-block; border-radius: 50%; margin-right: 5px; background: var(--blue); }
+    .legend i.orange { background: var(--amber); }
+    .legend i.green { background: var(--teal); }
+    .pipeline { padding: 18px 4px 8px; }
+    .pipeline-line { height: 4px; background: #dce6ef; position: relative; margin: 18px 30px 26px; }
+    .pipeline-line::before { content: ""; position: absolute; left: 0; top: 0; height: 100%; width: 72%; background: var(--teal); }
+    .stations { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .station { text-align: center; position: relative; }
+    .station .node { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 5px solid var(--teal); margin: -37px auto 12px; position: relative; z-index: 1; }
+    .station.warn .node { border-color: var(--amber); }
+    .station strong { font-size: 12px; display: block; }
+    .station small { color: var(--muted); font-size: 10px; display: block; margin-top: 4px; }
+    .side-stack { display: grid; gap: 18px; }
+    .health { display: grid; grid-template-columns: 118px 1fr; align-items: center; gap: 16px; }
+    .ring { width: 108px; height: 108px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--teal) 0 78%, #e6edf3 78% 100%); position: relative; }
+    .ring::after { content: ""; width: 82px; height: 82px; border-radius: 50%; background: #fff; position: absolute; }
+    .ring span { position: relative; z-index: 1; font-weight: 800; font-size: 23px; }
+    .health ul { padding: 0; margin: 0; list-style: none; display: grid; gap: 11px; font-size: 12px; }
+    .health li { display: flex; justify-content: space-between; gap: 14px; color: var(--muted); }
+    .health li b { color: var(--ink); }
+    .alert-list { display: grid; gap: 10px; }
+    .alert-item { border-left: 3px solid var(--amber); background: #fffaf3; border-radius: 6px; padding: 11px 12px; display: flex; justify-content: space-between; gap: 10px; }
+    .alert-item.critical { border-left-color: var(--red); background: #fff5f5; }
+    .alert-item strong { font-size: 12px; display: block; }
+    .alert-item small { color: var(--muted); font-size: 11px; }
+    .alert-item b { color: var(--amber); font-size: 11px; white-space: nowrap; }
+    .alert-item.critical b { color: var(--red); }
+    .bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 18px; }
+    .optimization { display: grid; gap: 14px; }
+    .option { border: 1px solid var(--line); border-radius: 8px; padding: 13px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .option.recommended { border: 2px solid var(--blue); padding: 12px; background: #f6faff; }
+    .option strong { display: block; font-size: 13px; } .option small { color: var(--muted); }
+    .saving { color: var(--teal); font-weight: 800; white-space: nowrap; }
+    .activity { display: grid; gap: 13px; }
+    .activity-item { display: grid; grid-template-columns: 76px 1fr auto; gap: 12px; align-items: center; font-size: 12px; }
+    .activity-item time { color: var(--muted); } .activity-item span { color: var(--ink); } .activity-item b { color: var(--teal); font-size: 11px; }
+    .toast { position: fixed; right: 24px; bottom: 24px; background: #102a43; color: #fff; padding: 13px 17px; border-radius: 8px; box-shadow: var(--shadow); transform: translateY(20px); opacity: 0; pointer-events: none; transition: .25s; font-size: 13px; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    @media (max-width: 1050px) { .app { grid-template-columns: 76px 1fr; } .sidebar { padding: 20px 10px; } .brand { justify-content: center; padding: 0; } .brand > div, .nav-label, .nav button span:not(.ico), .side-footer { display: none; } .nav button { justify-content: center; } .content { padding: 25px; } }
+    @media (max-width: 800px) { .topbar { padding: 0 18px; } .hero, .layout, .bottom { display: block; } .hero-tools { justify-content: start; margin-top: 18px; } .stats { grid-template-columns: repeat(2, 1fr); margin-top: 18px; } .side-stack, .bottom > .card { margin-top: 18px; } }
+    @media (max-width: 520px) { .content { padding: 18px 14px; } .stats { gap: 9px; } .stat { padding: 14px; } .stat strong { font-size: 22px; } .top-actions .status { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">脉</div><div><strong>管脉</strong><small>PIPELINE PULSE</small></div></div>
+      <div><p class="nav-label">WORKSPACE</p><nav class="nav">
+        <button class="active" data-view="总览"><span class="ico">◈</span><span>运行总览</span></button>
+        <button data-view="管线"><span class="ico">⌁</span><span>管线态势</span></button>
+        <button data-view="计算"><span class="ico">∿</span><span>水力计算</span></button>
+        <button data-view="优化"><span class="ico">✦</span><span>泵站优化</span></button>
+        <button data-view="知识"><span class="ico">▤</span><span>知识助手</span></button>
+      </nav></div>
+      <div><p class="nav-label">SYSTEM</p><nav class="nav"><button data-view="项目"><span class="ico">□</span><span>项目管理</span></button><button data-view="设置"><span class="ico">⚙</span><span>系统设置</span></button></nav></div>
+      <div class="side-footer">数据更新时间<br><b style="color:#fff">2026-09-30 14:32</b><br><span>演示数据 · 本地工作区</span></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div class="crumb"><b>运行总览</b><span>/ 西部成品油管线 · 一期</span></div><div class="top-actions"><div class="status"><i class="dot"></i>系统运行正常</div><div class="avatar">管</div></div></header>
+      <section class="content">
+        <div class="hero"><div><div class="eyebrow">OPERATIONS INTELLIGENCE</div><h1>把每一公里，变成可解释的能耗决策</h1><p>从实时工况到泵站组合，用一套可追溯的运行视图发现异常、验证方案、沉淀经验。</p></div><div class="hero-tools"><button class="btn" id="rangeBtn">近 24 小时⌄</button><button class="btn primary" id="analyzeBtn">＋ 新建分析</button></div></div>
+        <div class="stats"><div class="stat"><small>当前输量</small><strong>1,280</strong><em>m³/h</em></div><div class="stat"><small>单位输量能耗</small><strong>3.62</strong><em>kWh/千吨·公里</em></div><div class="stat"><small>末站压力</small><strong>0.86</strong><em>MPa</em></div><div class="stat"><small>运行健康度</small><strong>78</strong><em>分</em></div></div>
+        <div class="layout"><div class="card"><div class="card-head"><div><h2>输量与能耗趋势</h2><p>以小时为粒度聚合 · 点击图例可切换指标</p></div><span class="tag">实时数据</span></div><div class="chart-wrap"><div class="gridline"></div><div class="gridline"></div><div class="gridline"></div><div class="gridline"></div><svg class="chart-svg" viewBox="0 0 700 210" preserveAspectRatio="none" aria-label="输量与能耗趋势图"><defs><linearGradient id="area" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#1677ff" stop-opacity=".20"/><stop offset="1" stop-color="#1677ff" stop-opacity="0"/></linearGradient></defs><path d="M0 144 C40 138 50 114 93 124 S145 162 190 139 S235 82 277 104 S331 147 367 121 S417 50 463 75 S510 141 550 110 S602 64 650 78 S680 92 700 70 L700 210 L0 210Z" fill="url(#area)"/><path d="M0 144 C40 138 50 114 93 124 S145 162 190 139 S235 82 277 104 S331 147 367 121 S417 50 463 75 S510 141 550 110 S602 64 650 78 S680 92 700 70" fill="none" stroke="#1677ff" stroke-width="3"/><path d="M0 176 C45 173 65 158 105 165 S165 181 210 168 S270 144 310 155 S360 173 405 153 S455 126 500 144 S550 172 592 148 S650 132 700 140" fill="none" stroke="#d9822b" stroke-width="3" stroke-dasharray="7 6"/></svg><div class="axis"><span>00:00</span><span>04:00</span><span>08:00</span><span>12:00</span><span>16:00</span><span>现在</span></div></div><div class="legend"><span><i></i>输量（m³/h）</span><span><i class="orange"></i>单位能耗</span><span><i class="green"></i>目标区间</span></div><div class="pipeline"><div class="pipeline-line"></div><div class="stations"><div class="station"><div class="node"></div><strong>首站</strong><small>0.98 MPa</small></div><div class="station"><div class="node"></div><strong>泵站 01</strong><small>运行正常</small></div><div class="station warn"><div class="node"></div><strong>泵站 02</strong><small>关注振动</small></div><div class="station"><div class="node"></div><strong>末站</strong><small>0.86 MPa</small></div></div></div></div>
+          <div class="side-stack"><div class="card"><div class="card-head"><div><h2>运行健康度</h2><p>基于压力、能耗、设备状态综合计算</p></div><span class="tag">较稳定</span></div><div class="health"><div class="ring"><span>78</span></div><ul><li><span>压力裕度</span><b>良好</b></li><li><span>摩阻损失</span><b>2.14 MPa</b></li><li><span>设备可用率</span><b>96.8%</b></li><li><span>异常待处理</span><b style="color:var(--amber)">3 项</b></li></ul></div></div><div class="card"><div class="card-head"><div><h2>需要关注</h2><p>按影响程度排序</p></div><span class="tag">3 条</span></div><div class="alert-list"><div class="alert-item critical"><div><strong>泵站 02 振动偏高</strong><small>过去 30 分钟 · 影响设备健康度</small></div><b>高</b></div><div class="alert-item"><div><strong>末站压力接近下限</strong><small>建议复核泵机组合</small></div><b>中</b></div><div class="alert-item"><div><strong>能耗较目标高 6.4%</strong><small>连续 2 个小时超出</small></div><b>中</b></div></div></div></div>
+        </div>
+        <div class="bottom"><div class="card"><div class="card-head"><div><h2>泵站组合建议</h2><p>目标：满足末站压力约束下，降低综合能耗</p></div><span class="tag">AI 辅助</span></div><div class="optimization"><div class="option recommended"><div><strong>方案 A · 1×ZMI480 + 1×ZMI375</strong><small>末站压力 0.91 MPa · 约束满足</small></div><span class="saving">↓ 8.7%</span></div><div class="option"><div><strong>当前方案 · 2×ZMI480</strong><small>末站压力 1.03 MPa · 能耗偏高</small></div><span style="color:var(--muted)">基准</span></div><button class="btn primary" id="applyBtn">查看方案验证过程 →</button></div></div><div class="card"><div class="card-head"><div><h2>最近活动</h2><p>保留每次分析的证据链</p></div><button class="btn" id="allBtn">全部</button></div><div class="activity"><div class="activity-item"><time>14:28</time><span>完成“西部一期”水力分析</span><b>已完成</b></div><div class="activity-item"><time>13:46</time><span>生成泵站组合优化建议</span><b>待确认</b></div><div class="activity-item"><time>12:15</time><span>导入 2026-09-30 工况数据</span><b>已完成</b></div><div class="activity-item"><time>昨日</time><span>更新《泵站能耗优化案例集》</span><b>已同步</b></div></div></div></div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script>
+    const toast = document.getElementById('toast');
+    function notify(message) { toast.textContent = message; toast.classList.add('show'); clearTimeout(window.__toast); window.__toast = setTimeout(() => toast.classList.remove('show'), 2400); }
+    document.querySelectorAll('.nav button').forEach(button => button.addEventListener('click', () => { document.querySelectorAll('.nav button').forEach(item => item.classList.remove('active')); button.classList.add('active'); notify(`已切换到「${button.dataset.view}」视图（原型演示）`); }));
+    document.getElementById('analyzeBtn').addEventListener('click', () => notify('已打开“新建分析”流程：选择项目 → 校验工况 → 运行模型'));
+    document.getElementById('applyBtn').addEventListener('click', () => notify('已展开方案 A 的压力、摩阻和能耗验证过程'));
+    document.getElementById('allBtn').addEventListener('click', () => notify('活动中心将在正式版本展示完整证据链'));
+    document.getElementById('rangeBtn').addEventListener('click', () => notify('时间范围：近 24 小时 / 近 7 天 / 自定义'));
+  </script>
+</body>
+</html>

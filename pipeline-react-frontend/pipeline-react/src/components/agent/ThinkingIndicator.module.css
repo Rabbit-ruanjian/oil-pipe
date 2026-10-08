@@ -1,0 +1,26 @@
+.thinkingContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  overflow: hidden;
+}
+
+.label {
+  color: #8c8c8c;
+  font-size: 0.85em;
+}
+
+.dots {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #8c8c8c;
+}

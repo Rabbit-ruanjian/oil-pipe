@@ -1,0 +1,6 @@
+name = "data-query"
+version = "1.0.0"
+description = "面向业务数据库的数据查询 skill"
+
+[metadata]
+phase = "phase-1"

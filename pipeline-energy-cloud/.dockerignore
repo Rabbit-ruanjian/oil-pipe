@@ -1,0 +1,6 @@
+data/
+logs/
+target/
+.git/
+*.log
+*.sock

@@ -1,0 +1,579 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  Login Page - Apple风格浅色主题响应式登录页
+ *  Design: Apple HIG + Linear + Stripe Light Theme
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 1. 页面容器
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-6);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 2. 背景设计 - 清新浅色渐变
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    135deg,
+    #FAFBFC 0%,
+    #F0F4F8 25%,
+    #E8F4FD 50%,
+    #F0F4F8 75%,
+    #FAFBFC 100%
+  );
+  z-index: 0;
+}
+
+/* 装饰性网格背景 */
+.background::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    rgba(0, 122, 255, 0.03) 1px,
+    transparent 0
+  );
+  background-size: 32px 32px;
+}
+
+/* 装饰性渐变圆 */
+.background::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 60%;
+  height: 80%;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 122, 255, 0.06) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+/* 流动管道动画 - 浅色版本 */
+.pipeline {
+  position: absolute;
+  width: 200%;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 122, 255, 0.1) 25%,
+    rgba(0, 122, 255, 0.3) 50%,
+    rgba(0, 122, 255, 0.1) 75%,
+    transparent 100%
+  );
+  top: 50%;
+  left: -50%;
+  transform: translateY(-50%) rotate(-3deg);
+  animation: flow 12s linear infinite;
+}
+
+.pipeline::before,
+.pipeline::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  background: inherit;
+}
+
+.pipeline::before {
+  top: 120px;
+  transform: rotate(2deg);
+  opacity: 0.6;
+  animation: flow 16s linear infinite reverse;
+}
+
+.pipeline::after {
+  top: -120px;
+  transform: rotate(-2deg);
+  opacity: 0.4;
+  animation: flow 20s linear infinite;
+}
+
+@keyframes flow {
+  0% {
+    transform: translateX(-50%) translateY(-50%) rotate(-3deg);
+  }
+  100% {
+    transform: translateX(0%) translateY(-50%) rotate(-3deg);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 3. 登录卡片 - Apple风格
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.loginCard {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-2xl);
+  box-shadow:
+    0 0 0 1px var(--border-subtle),
+    var(--shadow-xl);
+  position: relative;
+  z-index: 1;
+  background: var(--bg-elevated);
+  overflow: hidden;
+}
+
+/* Ant Design Card 样式覆盖 */
+.loginCard :global(.ant-card-body) {
+  padding: var(--space-10);
+}
+
+/* 卡片顶部装饰线 */
+.loginCard::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    var(--accent-primary) 0%,
+    var(--accent-secondary) 100%
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 4. 头部区域
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.logo {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto var(--space-5);
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary) 0%,
+    var(--accent-secondary) 100%
+  );
+  border-radius: var(--radius-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 8px 24px rgba(0, 122, 255, 0.25),
+    0 4px 8px rgba(0, 122, 255, 0.15);
+  transition: transform var(--duration-normal) var(--ease-spring);
+}
+
+.logo:hover {
+  transform: scale(1.05) translateY(-2px);
+}
+
+.logoIcon {
+  font-size: 32px;
+  filter: brightness(1.1);
+}
+
+.header h1 {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--text-primary);
+  margin-bottom: var(--space-2);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+
+.header p {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-wide);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 5. 表单样式
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.loginCard :global(.ant-form-item) {
+  margin-bottom: var(--space-5);
+}
+
+.loginCard :global(.ant-input-affix-wrapper) {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  background: var(--bg-base);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.loginCard :global(.ant-input-affix-wrapper:hover) {
+  border-color: var(--border-strong);
+}
+
+.loginCard :global(.ant-input-affix-wrapper:focus),
+.loginCard :global(.ant-input-affix-wrapper-focused) {
+  border-color: var(--accent-primary);
+  box-shadow: var(--ring-focus);
+}
+
+.loginCard :global(.ant-input) {
+  font-size: var(--text-base);
+}
+
+.loginCard :global(.ant-input-prefix) {
+  color: var(--text-muted);
+  margin-right: var(--space-3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 6. 按钮样式
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.loginBtn {
+  height: 48px !important;
+  font-size: var(--text-base) !important;
+  font-weight: var(--font-semibold) !important;
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary) 0%,
+    var(--accent-primary-hover) 100%
+  ) !important;
+  border: none !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow:
+    0 4px 12px rgba(0, 122, 255, 0.25),
+    0 2px 4px rgba(0, 122, 255, 0.15) !important;
+  transition: all var(--duration-fast) var(--ease-default) !important;
+}
+
+.loginBtn:hover {
+  background: linear-gradient(
+    135deg,
+    var(--accent-primary-hover) 0%,
+    var(--accent-primary-active) 100%
+  ) !important;
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 16px rgba(0, 122, 255, 0.3),
+    0 3px 6px rgba(0, 122, 255, 0.2) !important;
+}
+
+.loginBtn:active {
+  transform: translateY(0);
+}
+
+/* 演示按钮 */
+.loginCard :global(.ant-btn-default) {
+  height: 44px;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+.loginCard :global(.ant-btn-default:hover) {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--accent-primary-lighter);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 7. 底部提示
+ * ═══════════════════════════════════════════════════════════════════════════ */
+.footer {
+  text-align: center;
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.footer p {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 8. 响应式设计 - 细粒度控制
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─────────────────────────────────────────────
+ * 2K+ 大屏幕 (≥ 1536px)
+ * ───────────────────────────────────────────── */
+@media (min-width: 1536px) {
+  .loginCard {
+    max-width: 460px;
+  }
+
+  .loginCard :global(.ant-card-body) {
+    padding: var(--space-12);
+  }
+
+  .logo {
+    width: 80px;
+    height: 80px;
+  }
+
+  .logoIcon {
+    font-size: 36px;
+  }
+
+  .header h1 {
+    font-size: var(--text-3xl);
+  }
+
+  .header p {
+    font-size: var(--text-base);
+  }
+
+  .loginBtn {
+    height: 52px !important;
+    font-size: var(--text-lg) !important;
+  }
+}
+
+/* ─────────────────────────────────────────────
+ * 平板横屏 (768px - 1023px)
+ * ───────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .loginCard {
+    max-width: 400px;
+  }
+
+  .loginCard :global(.ant-card-body) {
+    padding: var(--space-8);
+  }
+}
+
+/* ─────────────────────────────────────────────
+ * 平板竖屏 (640px - 767px)
+ * ───────────────────────────────────────────── */
+@media (min-width: 640px) and (max-width: 767px) {
+  .container {
+    padding: var(--space-5);
+  }
+
+  .loginCard {
+    max-width: 380px;
+  }
+
+  .loginCard :global(.ant-card-body) {
+    padding: var(--space-7);
+  }
+
+  .logo {
+    width: 64px;
+    height: 64px;
+  }
+
+  .logoIcon {
+    font-size: 28px;
+  }
+
+  .header h1 {
+    font-size: var(--text-xl);
+  }
+}
+
+/* ─────────────────────────────────────────────
+ * 移动端 (< 640px)
+ * ───────────────────────────────────────────── */
+@media (max-width: 639px) {
+  .container {
+    padding: var(--space-4);
+    align-items: flex-start;
+    padding-top: 10vh;
+  }
+
+  .loginCard {
+    max-width: 100%;
+    border-radius: var(--radius-xl);
+  }
+
+  .loginCard :global(.ant-card-body) {
+    padding: var(--space-6);
+  }
+
+  .logo {
+    width: 60px;
+    height: 60px;
+    margin-bottom: var(--space-4);
+  }
+
+  .logoIcon {
+    font-size: 26px;
+  }
+
+  .header {
+    margin-bottom: var(--space-6);
+  }
+
+  .header h1 {
+    font-size: var(--text-xl);
+    margin-bottom: var(--space-1);
+  }
+
+  .header p {
+    font-size: var(--text-xs);
+  }
+
+  .loginCard :global(.ant-form-item) {
+    margin-bottom: var(--space-4);
+  }
+
+  .loginCard :global(.ant-input-affix-wrapper) {
+    padding: var(--space-2-5) var(--space-3);
+  }
+
+  .loginCard :global(.ant-input) {
+    font-size: var(--text-sm);
+  }
+
+  .loginBtn {
+    height: 44px !important;
+    font-size: var(--text-sm) !important;
+  }
+
+  .loginCard :global(.ant-btn-default) {
+    height: 40px;
+    font-size: var(--text-xs);
+  }
+
+  .footer {
+    margin-top: var(--space-3);
+    padding-top: var(--space-3);
+  }
+
+  /* 隐藏部分装饰元素 */
+  .pipeline {
+    opacity: 0.5;
+  }
+}
+
+/* ─────────────────────────────────────────────
+ * 超小屏幕 (< 375px)
+ * ───────────────────────────────────────────── */
+@media (max-width: 374px) {
+  .container {
+    padding: var(--space-3);
+    padding-top: 8vh;
+  }
+
+  .loginCard :global(.ant-card-body) {
+    padding: var(--space-5);
+  }
+
+  .logo {
+    width: 52px;
+    height: 52px;
+  }
+
+  .logoIcon {
+    font-size: 22px;
+  }
+
+  .header h1 {
+    font-size: var(--text-lg);
+  }
+
+  .header p {
+    font-size: 10px;
+  }
+
+  .loginBtn {
+    height: 42px !important;
+  }
+
+  .loginCard :global(.ant-btn-default) {
+    height: 38px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 9. 横屏模式特殊处理
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (max-height: 600px) and (orientation: landscape) {
+  .container {
+    padding: var(--space-4);
+    align-items: center;
+  }
+
+  .loginCard :global(.ant-card-body) {
+    padding: var(--space-5);
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+    margin-bottom: var(--space-3);
+  }
+
+  .logoIcon {
+    font-size: 22px;
+  }
+
+  .header {
+    margin-bottom: var(--space-4);
+  }
+
+  .header h1 {
+    font-size: var(--text-lg);
+    margin-bottom: 0;
+  }
+
+  .header p {
+    display: none;
+  }
+
+  .loginCard :global(.ant-form-item) {
+    margin-bottom: var(--space-3);
+  }
+
+  .footer {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 10. 减少动画偏好
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+  .pipeline,
+  .pipeline::before,
+  .pipeline::after {
+    animation: none;
+  }
+
+  .logo {
+    transition: none;
+  }
+
+  .loginBtn {
+    transition: none !important;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 11. 深色模式支持（可选）
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  /* 暂时禁用，保持浅色主题 */
+}

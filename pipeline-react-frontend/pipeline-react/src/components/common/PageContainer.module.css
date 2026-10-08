@@ -1,0 +1,79 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  PageContainer - 响应式页面容器样式
+ *  Design: Apple HIG + Linear + Stripe Light Theme
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+.container {
+  min-height: 100%;
+  background: var(--bg-subtle);
+  padding: var(--content-padding-y) var(--content-padding-x);
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+.content {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.fullWidth .content {
+  max-width: none;
+}
+
+.noPadding {
+  padding: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 响应式断点
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 2K+ 大屏幕 */
+@media (min-width: 1536px) {
+  .container {
+    padding: var(--space-10) var(--space-12);
+  }
+}
+
+/* 桌面端 */
+@media (min-width: 1280px) and (max-width: 1535px) {
+  .container {
+    padding: var(--space-8) var(--space-10);
+  }
+}
+
+/* 平板横屏 */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .container {
+    padding: var(--space-6) var(--space-8);
+  }
+}
+
+/* 平板竖屏 */
+@media (min-width: 640px) and (max-width: 767px) {
+  .container {
+    padding: var(--space-5) var(--space-6);
+  }
+}
+
+/* 移动端 */
+@media (max-width: 639px) {
+  .container {
+    padding: var(--space-4);
+  }
+}
+
+/* 超小屏幕 */
+@media (max-width: 374px) {
+  .container {
+    padding: var(--space-3);
+  }
+}
+
+/* 动画减弱 */
+@media (prefers-reduced-motion: reduce) {
+  .container {
+    animation: none;
+  }
+}

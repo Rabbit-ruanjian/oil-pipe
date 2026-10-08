@@ -1,0 +1,166 @@
+.workspace {
+  display: grid;
+  grid-template-columns: 66px 272px minmax(0, 1fr) 286px;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #eaf1fa;
+  color: #132542;
+  position: relative;
+}
+
+.chatColumn,
+.commandColumn {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.chatColumn { display: flex; flex-direction: column; }
+.chatBody { display: flex; min-height: 0; flex: 1; }
+.messageColumn { display: flex; min-width: 0; min-height: 0; flex: 1; flex-direction: column; background: linear-gradient(180deg, #f4f8fe 0%, #eaf1fa 100%); }
+.messageScroller { min-height: 0; flex: 1; scrollbar-gutter: stable; }
+.commandColumn { display: block; border-left: 1px solid #e2e9f2; background: #fff; transition: width 180ms ease, opacity 180ms ease; }
+.commandCollapsed { display: none; }
+.compactNav { display: flex; min-height: 0; flex-direction: column; align-items: center; gap: 3px; border-right: 1px solid #e2e9f2; background: #fff; padding: 12px 0; }
+.compactLogo { display: grid; width: 40px; height: 40px; margin-bottom: 11px; place-items: center; border-radius: 11px; background: linear-gradient(135deg,#d97706,#f59e0b); color: #fff; font-family: Rajdhani, sans-serif; font-size: 19px; font-weight: 900; }
+.compactNavItem { position: relative; display: grid; width: 44px; height: 44px; place-items: center; border-radius: 11px; color: #7188a8; transition: color .15s ease, background .15s ease; }
+.compactNavItem:hover { color: #0891b2; background: #f0f6ff; }
+.compactNavItem:hover::after { content: attr(data-label); position: absolute; z-index: 90; left: 52px; top: 50%; padding: 4px 9px; transform: translateY(-50%); border-radius: 6px; background: #132542; color: #fff; font-size: 11px; white-space: nowrap; pointer-events: none; }
+.compactNavActive { color: #d97706; background: linear-gradient(135deg,#fff7ed,#fff); }
+.compactNavActive::before { content: ''; position: absolute; left: -11px; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: #d97706; }
+
+@media (max-width: 1320px) {
+  .workspace { grid-template-columns: 66px 240px minmax(0, 1fr) 270px; }
+}
+
+@media (max-width: 1100px) {
+  .workspace { grid-template-columns: 66px 232px minmax(0, 1fr); }
+  .commandColumn { display: none; }
+}
+
+@media (max-width: 760px) {
+  .workspace { display: grid; grid-template-columns: 56px minmax(0, 1fr); padding: 0; background: #fff; }
+  .workspace > :nth-child(2) { display: none; }
+  .compactNav { padding-top: 8px; }
+  .compactLogo { width: 38px; height: 38px; }
+  .compactNavItem { width: 40px; height: 40px; }
+  .chatColumn { height: 100%; }
+}
+
+/* The AI workspace is built from utility classes, so keep its complete
+   surface hierarchy tied to the application theme here.  Without this
+   scoped layer the utility colors remain white even after the global theme
+   switches to dark mode. */
+:global([data-theme='dark']) .workspace {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+:global([data-theme='dark']) .workspace .chatColumn,
+:global([data-theme='dark']) .workspace .commandColumn {
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
+}
+
+:global([data-theme='dark']) .workspace .messageColumn {
+  background: linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-base) 100%);
+}
+
+:global([data-theme='dark']) .workspace :global(.bg-white),
+:global([data-theme='dark']) .workspace :global(.bg-neutral-50),
+:global([data-theme='dark']) .workspace :global(.bg-neutral-100),
+:global([data-theme='dark']) .workspace :global([class*="bg-neutral-50/"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-neutral-100/"]) {
+  background: var(--bg-surface-2) !important;
+}
+
+:global([data-theme='dark']) .workspace :global(.bg-rose-50),
+:global([data-theme='dark']) .workspace :global(.bg-amber-50),
+:global([data-theme='dark']) .workspace :global(.bg-sky-50) {
+  background: rgba(8, 145, 178, 0.14) !important;
+}
+
+:global([data-theme='dark']) .workspace :global([class*="bg-[#f8fbff]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#fbfdff]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#f1f5f9]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#eff6ff]"]) {
+  background: var(--bg-surface-2) !important;
+}
+
+:global([data-theme='dark']) .workspace :global([class*="bg-[#ecfeff]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#ecfdf5]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#dcfce7]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#f5f3ff]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[#fff7ed]"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-sky-50"]) {
+  background: rgba(8, 145, 178, 0.16) !important;
+}
+
+:global([data-theme='dark']) .workspace :global([class*="bg-[linear-gradient(180deg,rgba(255,255,255"]),
+:global([data-theme='dark']) .workspace :global([class*="bg-[linear-gradient(135deg,#e0f2fe"]) {
+  background: linear-gradient(180deg, var(--bg-surface-2), var(--bg-surface-1)) !important;
+}
+
+:global([data-theme='dark']) .workspace :global(.border-neutral-200),
+:global([data-theme='dark']) .workspace :global([class*="border-[#e2eaf6]"]),
+:global([data-theme='dark']) .workspace :global([class*="border-[#d9e5f2]"]),
+:global([data-theme='dark']) .workspace :global([class*="border-[#eef3f8]"]) {
+  border-color: var(--border-subtle) !important;
+}
+
+:global([data-theme='dark']) .workspace :global(.text-neutral-950),
+:global([data-theme='dark']) .workspace :global(.text-neutral-900),
+:global([data-theme='dark']) .workspace :global(.text-neutral-800),
+:global([data-theme='dark']) .workspace :global([class*="text-[#132542]"]) {
+  color: var(--text-primary) !important;
+}
+
+:global([data-theme='dark']) .workspace :global(.text-neutral-700),
+:global([data-theme='dark']) .workspace :global(.text-neutral-600),
+:global([data-theme='dark']) .workspace :global(.text-neutral-500),
+:global([data-theme='dark']) .workspace :global(.text-slate-600),
+:global([data-theme='dark']) .workspace :global(.text-slate-500),
+:global([data-theme='dark']) .workspace :global([class*="text-[#3d557a]"]),
+:global([data-theme='dark']) .workspace :global([class*="text-[#7188a8]"]) {
+  color: var(--text-secondary) !important;
+}
+
+:global([data-theme='dark']) .workspace :global(.text-neutral-400),
+:global([data-theme='dark']) .workspace :global(.text-neutral-300),
+:global([data-theme='dark']) .workspace :global([class*="text-[#9aabc1]"]) {
+  color: var(--text-tertiary) !important;
+}
+
+:global([data-theme='dark']) .workspace textarea,
+:global([data-theme='dark']) .workspace select {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-surface-2) !important;
+  border-color: var(--border-default) !important;
+}
+
+:global([data-theme='dark']) .workspace textarea::placeholder {
+  color: var(--text-tertiary) !important;
+}
+
+:global([data-theme='dark']) .workspace option {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+
+:global([data-theme='dark']) .workspace :global([class*="hover:bg-white"]):hover,
+:global([data-theme='dark']) .workspace :global([class*="hover:bg-neutral-100"]):hover,
+:global([data-theme='dark']) .workspace :global([class*="hover:bg-[#f8fbff]"]):hover {
+  background: var(--bg-interactive-hover) !important;
+}
+
+:global([data-theme='dark']) .workspace :global([class*="ring-white"]) {
+  --tw-ring-color: var(--border-default) !important;
+}
+
+:global([data-theme='dark']) .workspace :global(.shadow-\[0_10px_26px_rgba\(36\,70\,112\,0\.08\)\]) {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26) !important;
+}

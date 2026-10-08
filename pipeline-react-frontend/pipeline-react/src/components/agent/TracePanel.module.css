@@ -1,0 +1,151 @@
+﻿.panel {
+  display: grid;
+  gap: 14px;
+}
+
+.section {
+  display: grid;
+  gap: 10px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.infoCard,
+.planBlock,
+.toolRunning,
+.toolDone {
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.infoCard {
+  padding: 12px 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.infoRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.value {
+  flex: 1;
+  text-align: right;
+  word-break: break-word;
+}
+
+.metaBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.tagWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.compactTag {
+  margin-inline-end: 0 !important;
+}
+
+.toolList {
+  display: grid;
+  gap: 8px;
+}
+
+.toolRunning,
+.toolDone {
+  padding: 10px 12px;
+}
+
+.toolRunning {
+  background: rgba(239, 246, 255, 0.85);
+  border-color: rgba(59, 130, 246, 0.16);
+}
+
+.toolDone {
+  background: rgba(248, 250, 252, 0.94);
+}
+
+.toolTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolStatus {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.toolOutput {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #475569;
+  word-break: break-word;
+}
+
+.planBlock {
+  padding: 12px 14px;
+}
+
+.logList {
+  max-height: 300px;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.84);
+  border-radius: 18px !important;
+  border-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+.logRow {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  width: 100%;
+}
+
+.logTag {
+  margin-inline-end: 0 !important;
+}
+
+.logTime {
+  min-width: 88px;
+  font-size: 12px;
+}
+
+.logText {
+  word-break: break-word;
+}
+
+@media (max-width: 768px) {
+  .infoRow,
+  .sectionHeader,
+  .toolTitleRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .value {
+    text-align: left;
+  }
+
+  .logRow {
+    grid-template-columns: 1fr;
+  }
+}

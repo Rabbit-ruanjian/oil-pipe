@@ -1,0 +1,6 @@
+name = "knowledge-qa"
+version = "1.0.0"
+description = "基于知识库上下文的专业问答 skill"
+
+[metadata]
+phase = "phase-1"

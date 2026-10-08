@@ -1,0 +1,6 @@
+name = "chat-orchestrator"
+version = "1.0.0"
+description = "主 ReAct 对话编排 skill"
+
+[metadata]
+phase = "phase-1"

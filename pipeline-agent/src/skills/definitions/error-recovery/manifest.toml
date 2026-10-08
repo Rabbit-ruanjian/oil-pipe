@@ -1,0 +1,6 @@
+name = "error-recovery"
+version = "1.0.0"
+description = "错误恢复建议 skill"
+
+[metadata]
+phase = "phase-1"

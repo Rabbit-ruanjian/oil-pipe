@@ -1,0 +1,6 @@
+name = "hydraulic-calc"
+version = "1.0.0"
+description = "水力计算与结果解释 skill"
+
+[metadata]
+phase = "phase-1"

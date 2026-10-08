@@ -1,0 +1,6 @@
+name = "final-synthesis"
+version = "1.0.0"
+description = "最终回答整合 skill"
+
+[metadata]
+phase = "phase-1"

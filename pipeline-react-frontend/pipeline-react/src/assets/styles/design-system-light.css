@@ -1,0 +1,605 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  Pipeline Energy Analysis System - 精致浅色设计系统 v3.0
+ *
+ *  Design Philosophy:
+ *  - Vercel Geist: 10级色彩层级系统
+ *  - Linear: LCH感知均匀色彩 + 表面层级
+ *  - Stripe: 鲜艳且可访问的语义色彩
+ *  - Apple HIG: 精致细节 + 8pt网格
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 1. 响应式断点系统
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --breakpoint-xs: 375px;
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  --breakpoint-3xl: 1920px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 2. 背景层级系统 (Vercel Geist 风格)
+ * 不是纯白，而是有微妙的冷灰色层级，创造空间感
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────
+   * 主背景 - 带有微妙蓝灰色调
+   * ───────────────────────────────────────────────────────── */
+  --bg-base: #F8FAFC;           /* 页面底层背景 - 冷灰白 */
+  --bg-subtle: #F1F5F9;         /* 次要区域背景 */
+  --bg-muted: #E2E8F0;          /* 静音背景 */
+
+  /* ─────────────────────────────────────────────────────────
+   * 表面层级 (Linear 风格) - 卡片、面板、弹窗
+   * ───────────────────────────────────────────────────────── */
+  --bg-surface-1: #FFFFFF;      /* 默认卡片背景 */
+  --bg-surface-2: #FAFBFC;      /* 悬停背景 */
+  --bg-surface-3: #F4F6F8;      /* 激活背景 */
+  --bg-elevated: #FFFFFF;       /* 提升层（弹窗、下拉） */
+  --bg-sunken: #EEF2F6;         /* 凹陷背景（输入框内部） */
+
+  /* ─────────────────────────────────────────────────────────
+   * 交互背景
+   * ───────────────────────────────────────────────────────── */
+  --bg-interactive: rgba(59, 130, 246, 0.04);     /* 交互悬停 */
+  --bg-interactive-hover: rgba(59, 130, 246, 0.08);
+  --bg-interactive-active: rgba(59, 130, 246, 0.12);
+
+  /* ─────────────────────────────────────────────────────────
+   * 遮罩和玻璃效果
+   * ───────────────────────────────────────────────────────── */
+  --bg-overlay: rgba(15, 23, 42, 0.6);
+  --bg-glass: rgba(255, 255, 255, 0.8);
+  --bg-glass-strong: rgba(255, 255, 255, 0.92);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 3. 边框层级系统 (Vercel Geist Colors 4-6)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --border-subtle: rgba(15, 23, 42, 0.06);    /* 默认边框 */
+  --border-default: rgba(15, 23, 42, 0.10);   /* 悬停边框 */
+  --border-strong: rgba(15, 23, 42, 0.16);    /* 激活边框 */
+  --border-focus: #3B82F6;                     /* 焦点边框 */
+  --border-interactive: rgba(59, 130, 246, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 4. 文字层级系统 (Vercel Geist Colors 9-10)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --text-primary: #0F172A;      /* 主要文字 - 深蓝黑 */
+  --text-secondary: #334155;    /* 次要文字 */
+  --text-tertiary: #64748B;     /* 三级文字 */
+  --text-muted: #94A3B8;        /* 静音文字 */
+  --text-disabled: #CBD5E1;     /* 禁用文字 */
+  --text-inverse: #FFFFFF;      /* 反色文字 */
+  --text-link: #2563EB;         /* 链接 */
+  --text-link-hover: #1D4ED8;   /* 链接悬停 */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 5. 品牌强调色 - 鲜艳渐变 (Stripe 风格)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────
+   * 主强调色 - 蓝色（偏向靛蓝，更有深度）
+   * ───────────────────────────────────────────────────────── */
+  --accent-primary: #3B82F6;
+  --accent-primary-hover: #2563EB;
+  --accent-primary-active: #1D4ED8;
+  --accent-primary-light: #EFF6FF;
+  --accent-primary-lighter: #F0F9FF;
+
+  /* 品牌渐变 - 让按钮更有活力 */
+  --gradient-primary: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  --gradient-primary-hover: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%);
+
+  /* ─────────────────────────────────────────────────────────
+   * 次要强调色 - 紫色
+   * ───────────────────────────────────────────────────────── */
+  --accent-secondary: #8B5CF6;
+  --accent-secondary-hover: #7C3AED;
+  --accent-secondary-light: #F5F3FF;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 6. 语义色彩系统 (Stripe 鲜艳+可访问)
+ * 使用感知均匀的色彩，确保每种颜色视觉权重一致
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ─────────────────────────────────────────────────────────
+   * 成功 - 翠绿色（比纯绿更高级）
+   * ───────────────────────────────────────────────────────── */
+  --semantic-success: #10B981;
+  --semantic-success-hover: #059669;
+  --semantic-success-bg: #ECFDF5;
+  --semantic-success-border: rgba(16, 185, 129, 0.3);
+  --semantic-success-text: #065F46;
+
+  /* ─────────────────────────────────────────────────────────
+   * 警告 - 琥珀色（温暖但不刺眼）
+   * ───────────────────────────────────────────────────────── */
+  --semantic-warning: #F59E0B;
+  --semantic-warning-hover: #D97706;
+  --semantic-warning-bg: #FFFBEB;
+  --semantic-warning-border: rgba(245, 158, 11, 0.3);
+  --semantic-warning-text: #92400E;
+
+  /* ─────────────────────────────────────────────────────────
+   * 危险 - 玫瑰红（比纯红更现代）
+   * ───────────────────────────────────────────────────────── */
+  --semantic-danger: #EF4444;
+  --semantic-danger-hover: #DC2626;
+  --semantic-danger-bg: #FEF2F2;
+  --semantic-danger-border: rgba(239, 68, 68, 0.3);
+  --semantic-danger-text: #991B1B;
+
+  /* ─────────────────────────────────────────────────────────
+   * 信息 - 天蓝色
+   * ───────────────────────────────────────────────────────── */
+  --semantic-info: #06B6D4;
+  --semantic-info-hover: #0891B2;
+  --semantic-info-bg: #ECFEFF;
+  --semantic-info-border: rgba(6, 182, 212, 0.3);
+  --semantic-info-text: #155E75;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 7. 扩展调色板 - 用于图表、标签等
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 蓝色系 */
+  --color-blue-50: #EFF6FF;
+  --color-blue-100: #DBEAFE;
+  --color-blue-200: #BFDBFE;
+  --color-blue-300: #93C5FD;
+  --color-blue-400: #60A5FA;
+  --color-blue-500: #3B82F6;
+  --color-blue-600: #2563EB;
+  --color-blue-700: #1D4ED8;
+
+  /* 靛蓝色系 */
+  --color-indigo-50: #EEF2FF;
+  --color-indigo-500: #6366F1;
+  --color-indigo-600: #4F46E5;
+
+  /* 紫色系 */
+  --color-purple-50: #F5F3FF;
+  --color-purple-500: #8B5CF6;
+  --color-purple-600: #7C3AED;
+
+  /* 青色系 */
+  --color-cyan-50: #ECFEFF;
+  --color-cyan-500: #06B6D4;
+  --color-cyan-600: #0891B2;
+
+  /* 绿色系 */
+  --color-emerald-50: #ECFDF5;
+  --color-emerald-500: #10B981;
+  --color-emerald-600: #059669;
+
+  /* 琥珀色系 */
+  --color-amber-50: #FFFBEB;
+  --color-amber-500: #F59E0B;
+  --color-amber-600: #D97706;
+
+  /* 玫瑰色系 */
+  --color-rose-50: #FFF1F2;
+  --color-rose-500: #F43F5E;
+  --color-rose-600: #E11D48;
+
+  /* 石板灰系 */
+  --color-slate-50: #F8FAFC;
+  --color-slate-100: #F1F5F9;
+  --color-slate-200: #E2E8F0;
+  --color-slate-300: #CBD5E1;
+  --color-slate-400: #94A3B8;
+  --color-slate-500: #64748B;
+  --color-slate-600: #475569;
+  --color-slate-700: #334155;
+  --color-slate-800: #1E293B;
+  --color-slate-900: #0F172A;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 8. 阴影系统 - 柔和分层
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 基础阴影 */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.07), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+  --shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.1), 0 10px 10px -5px rgba(15, 23, 42, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(15, 23, 42, 0.2);
+
+  /* 特殊阴影 */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+  --shadow-card-hover: 0 8px 16px -4px rgba(15, 23, 42, 0.08), 0 4px 6px -2px rgba(15, 23, 42, 0.03);
+  --shadow-dropdown: 0 10px 40px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+  --shadow-modal: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+
+  /* 彩色阴影 - 用于按钮悬停 */
+  --shadow-primary: 0 4px 14px -2px rgba(59, 130, 246, 0.4);
+  --shadow-success: 0 4px 14px -2px rgba(16, 185, 129, 0.4);
+  --shadow-danger: 0 4px 14px -2px rgba(239, 68, 68, 0.4);
+
+  /* 焦点环 */
+  --ring-focus: 0 0 0 3px rgba(59, 130, 246, 0.15);
+  --ring-focus-danger: 0 0 0 3px rgba(239, 68, 68, 0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 9. 圆角系统
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 20px;
+  --radius-full: 9999px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 10. 字体系统
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text',
+               'Inter', 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+
+  /* 字号 */
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-lg: 17px;
+  --text-xl: 19px;
+  --text-2xl: 22px;
+  --text-3xl: 26px;
+  --text-4xl: 32px;
+  --text-5xl: 40px;
+
+  /* 字重 */
+  --font-regular: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* 行高 */
+  --leading-none: 1;
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  /* 字间距 */
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 11. 间距系统 (8pt 网格)
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --space-0: 0;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* 布局间距 */
+  --content-padding-x: var(--space-8);
+  --content-padding-y: var(--space-8);
+  --content-max-width: 1400px;
+  --card-padding: var(--space-6);
+  --card-padding-sm: var(--space-4);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 11.5 布局尺寸系统
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 侧边栏尺寸 */
+  --sidebar-width: 260px;
+  --sidebar-width-collapsed: 84px;
+  --sidebar-width-mobile: 280px;
+
+  /* 头部高度 */
+  --header-height: 64px;
+  --header-height-mobile: 56px;
+
+  /* 按钮高度 */
+  --button-height-sm: 32px;
+  --button-height-md: 40px;
+  --button-height-lg: 48px;
+
+  /* Z-index 层级系统 */
+  --z-dropdown: 1000;
+  --z-sticky: 1020;
+  --z-fixed: 1030;
+  --z-modal-backdrop: 1040;
+  --z-modal: 1050;
+  --z-popover: 1060;
+  --z-tooltip: 1070;
+  --z-docked: 10;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 11.7 Container Query 断点
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --container-xs: 320px;
+  --container-sm: 480px;
+  --container-md: 640px;
+  --container-lg: 800px;
+  --container-xl: 1024px;
+  --container-2xl: 1280px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 12. 动效系统
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --duration-instant: 50ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 400ms;
+
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  --transition-fast: all var(--duration-fast) var(--ease-default);
+  --transition-all: all var(--duration-normal) var(--ease-default);
+  --transition-transform: transform var(--duration-normal) var(--ease-default);
+
+  /* 弹性缓动 */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 13. 渐变预设 - 为UI增加活力
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* 背景渐变 */
+  --gradient-subtle: linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%);
+  --gradient-page: linear-gradient(180deg, #F8FAFC 0%, #F1F5F9 100%);
+
+  /* 品牌渐变 */
+  --gradient-blue: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+  --gradient-indigo: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+  --gradient-purple: linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%);
+  --gradient-cyan: linear-gradient(135deg, #06B6D4 0%, #0891B2 100%);
+  --gradient-emerald: linear-gradient(135deg, #10B981 0%, #059669 100%);
+
+  /* 特殊渐变 */
+  --gradient-hero: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-sunset: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  --gradient-ocean: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 14. 动画关键帧
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 15. 无障碍 - 高对比度模式
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-contrast: high) {
+  :root {
+    --border-subtle: rgba(15, 23, 42, 0.2);
+    --border-default: rgba(15, 23, 42, 0.4);
+    --text-secondary: #1E293B;
+    --text-tertiary: #334155;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 16. 减少动效
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-instant: 0ms;
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-slower: 0ms;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 17. 暗色主题 - 自动跟随系统 + 手动切换
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+:root[data-theme='dark'] {
+  --bg-base: #0B0F1A;
+  --bg-subtle: #111827;
+  --bg-muted: #1F2937;
+  --bg-surface-1: #1A1F2E;
+  --bg-surface-2: #1E2433;
+  --bg-surface-3: #252B3B;
+  --bg-elevated: #1A1F2E;
+  --bg-sunken: #070A12;
+  --bg-interactive: rgba(59, 130, 246, 0.08);
+  --bg-interactive-hover: rgba(59, 130, 246, 0.12);
+  --bg-interactive-active: rgba(59, 130, 246, 0.18);
+  --bg-overlay: rgba(0, 0, 0, 0.7);
+  --bg-glass: rgba(26, 31, 46, 0.8);
+  --bg-glass-strong: rgba(26, 31, 46, 0.92);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text-primary: #F1F5F9;
+  --text-secondary: #CBD5E1;
+  --text-tertiary: #94A3B8;
+  --text-muted: #64748B;
+  --text-disabled: #475569;
+  --text-inverse: #0F172A;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-card-hover: 0 8px 16px -4px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+  --shadow-dropdown: 0 10px 40px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+  --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  --semantic-success-bg: rgba(16, 185, 129, 0.12);
+  --semantic-warning-bg: rgba(245, 158, 11, 0.12);
+  --semantic-danger-bg: rgba(239, 68, 68, 0.12);
+  --semantic-info-bg: rgba(6, 182, 212, 0.12);
+  --accent-primary-light: rgba(59, 130, 246, 0.12);
+  --accent-primary-lighter: rgba(59, 130, 246, 0.06);
+  --accent-secondary-light: rgba(139, 92, 246, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg-base: #0B0F1A;
+    --bg-subtle: #111827;
+    --bg-muted: #1F2937;
+    --bg-surface-1: #1A1F2E;
+    --bg-surface-2: #1E2433;
+    --bg-surface-3: #252B3B;
+    --bg-elevated: #1A1F2E;
+    --bg-sunken: #070A12;
+    --bg-interactive: rgba(59, 130, 246, 0.08);
+    --bg-interactive-hover: rgba(59, 130, 246, 0.12);
+    --bg-interactive-active: rgba(59, 130, 246, 0.18);
+    --bg-overlay: rgba(0, 0, 0, 0.7);
+    --bg-glass: rgba(26, 31, 46, 0.8);
+    --bg-glass-strong: rgba(26, 31, 46, 0.92);
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-default: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text-primary: #F1F5F9;
+    --text-secondary: #CBD5E1;
+    --text-tertiary: #94A3B8;
+    --text-muted: #64748B;
+    --text-disabled: #475569;
+    --text-inverse: #0F172A;
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.35), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+    --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+    --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.1);
+    --shadow-card-hover: 0 8px 16px -4px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+    --shadow-dropdown: 0 10px 40px -4px rgba(0, 0, 0, 0.5), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
+    --shadow-modal: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+    --semantic-success-bg: rgba(16, 185, 129, 0.12);
+    --semantic-warning-bg: rgba(245, 158, 11, 0.12);
+    --semantic-danger-bg: rgba(239, 68, 68, 0.12);
+    --semantic-info-bg: rgba(6, 182, 212, 0.12);
+    --accent-primary-light: rgba(59, 130, 246, 0.12);
+    --accent-primary-lighter: rgba(59, 130, 246, 0.06);
+    --accent-secondary-light: rgba(139, 92, 246, 0.12);
+  }
+}

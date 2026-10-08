@@ -1,0 +1,6 @@
+name = "supervisor"
+version = "1.0.0"
+description = "总调度、意图判断和多 agent 结果整合"
+
+[metadata]
+phase = "phase-1"
