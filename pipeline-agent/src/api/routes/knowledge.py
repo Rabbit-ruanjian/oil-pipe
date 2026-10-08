@@ -186,6 +186,67 @@ class UploadResponse(BaseModel):
     message: str
 
 
+# ---------------------------------------------------------------------------
+# A 类"存入"（POST /knowledge/ingest）请求/响应模型
+# ---------------------------------------------------------------------------
+
+
+class IngestExpertItem(BaseModel):
+    """专家知识字段组（对齐 fault_causal.json schema）。
+
+    支持两种形态：
+      - 因果链扁平：fault + cause + prob + solution + cost/downtime
+      - 嵌套：fault + causes[{cause, prob, solutions[{solution, cost, downtime}]}]
+    """
+
+    fault: str = Field(..., min_length=1, max_length=200, description="故障名")
+    cause: Optional[str] = Field(default=None, max_length=200, description="原因名（扁平形态）")
+    prob: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="原因概率")
+    solution: Optional[str] = Field(default=None, max_length=200, description="解法名（扁平形态）")
+    cost: Optional[str] = Field(default=None, max_length=50, description="解法成本 high/medium/low")
+    downtime: Optional[str] = Field(default=None, max_length=50, description="停机时长")
+    causes: Optional[list[dict[str, Any]]] = Field(default=None, description="嵌套形态的 causes 列表")
+
+
+class IngestOptions(BaseModel):
+    """/knowledge/ingest 的可插拔选项（默认全关，关闭时行为与现状一致）。"""
+
+    llm_extract: bool = Field(default=False, description="A2 入库 LLM 知识抽取开关")
+    build_hype: bool = Field(default=False, description="A4 保留 HyPE 生成（B1 多路查询种子）")
+    distill_to_expert_graph: bool = Field(default=False, description="A3 文档图→专家图蒸馏开关")
+
+
+class IngestRequest(BaseModel):
+    """POST /knowledge/ingest 请求。"""
+
+    doc_id: Optional[str] = Field(default=None, max_length=100, description="稳定文档 ID（upsert 覆盖）")
+    title: str = Field(..., min_length=1, max_length=200)
+    category: str = Field(default="operations", description="知识库分类（standards/formulas/operations/cases/faq）")
+    content: Optional[str] = Field(default=None, description="纯文本内容（与 file 二选一或同时）")
+    file: Optional[UploadFile] = Field(default=None, description="上传文件（与 content 二选一）")
+    source: Optional[str] = Field(default=None, max_length=100, description="来源标签")
+    tags: Optional[list[str]] = Field(default=None, description="标签")
+    expert_knowledge: Optional[list[IngestExpertItem]] = Field(
+        default=None, description="A1 结构化知识直入字段组"
+    )
+    options: IngestOptions = Field(default_factory=IngestOptions, description="可插拔选项")
+    session_id: Optional[str] = Field(default=None, description="HITL 会话 ID（缺省用 ingest-default-session）")
+
+
+class IngestResponse(BaseModel):
+    """POST /knowledge/ingest 响应。"""
+
+    success: bool
+    doc_id: str
+    chunk_count: int = 0
+    expert_nodes_added: int = 0
+    expert_edges_added: int = 0
+    llm_extracted: bool = False
+    hitl_triggered: bool = False
+    hitl_request_id: Optional[str] = None
+    message: str
+
+
 class DeleteResponse(BaseModel):
     """Knowledge delete response."""
 
@@ -417,6 +478,66 @@ async def upload_document(
     except Exception as exc:  # noqa: BLE001
         logger.error(f"Knowledge upload failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+def _ingest_sync(request: IngestRequest) -> IngestResponse:
+    """POST /knowledge/ingest 的同步执行体（线程池里跑）。"""
+
+    from src.rag import ingest_structured_knowledge
+
+    category = _normalize_category(request.category)
+    file_bytes: Optional[bytes] = None
+    if request.file is not None:
+        file_bytes = request.file.file.read()
+
+    expert_items = [item.model_dump() for item in (request.expert_knowledge or [])]
+    options = request.options.model_dump()
+
+    try:
+        result = ingest_structured_knowledge(
+            doc_id=request.doc_id,
+            title=request.title,
+            category=category,
+            content=request.content,
+            file_bytes=file_bytes,
+            file_name=request.file.filename if request.file else None,
+            expert_knowledge=expert_items or None,
+            options=options,
+            session_id=request.session_id,
+            tags=request.tags,
+            source=request.source,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"Knowledge ingest failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return IngestResponse(
+        success=True,
+        doc_id=str(result.get("doc_id", "")),
+        chunk_count=int(result.get("chunk_count", 0)),
+        expert_nodes_added=int(result.get("expert_nodes_added", 0)),
+        expert_edges_added=int(result.get("expert_edges_added", 0)),
+        llm_extracted=bool(result.get("llm_extracted", False)),
+        hitl_triggered=bool(result.get("hitl_triggered", False)),
+        hitl_request_id=result.get("hitl_request_id"),
+        message=str(result.get("message", "ingest completed")),
+    )
+
+
+@router.post("/ingest", response_model=IngestResponse)
+async def ingest_knowledge(request: IngestRequest):
+    """A 类"存入"接口：文档入库 + 专家知识直入 + LLM 抽取 + 专家图蒸馏。
+
+    - 支持 content 或 file 二选一（或同时）；同 doc_id 覆盖（upsert 语义）。
+    - expert_knowledge 字段组直入专家因果链（对齐 fault_causal.json schema）。
+    - options.llm_extract / distill_to_expert_graph / build_hype 控制 A2/A3/A4，默认全关。
+    - 复杂抽取走 HITL：高置信静默自动，判不准弹窗，用户历史选过同类自动做。
+    - 返回 {doc_id, chunk_count, expert_nodes_added, expert_edges_added}。
+    """
+
+    return await run_in_threadpool(_ingest_sync, request)
 
 
 @router.delete("/documents/{doc_id}", response_model=DeleteResponse)

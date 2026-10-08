@@ -170,6 +170,42 @@ class Settings(BaseSettings):
         description="api=DashScope gte-rerank; local=本地BGE模型; llm=用LLM打分",
     )
 
+    # ===== RAG 可插拔开关（P0-③，默认全关，关闭时行为与现状逐字节一致）=====
+    # 所有开关默认 False；任一开关为 True 时对应 pre-execution hook 生效；
+    # hook 失败/超时自动降级跳过，不阻断主链路。
+    RAG_MULTI_QUERY: bool = Field(
+        default=False,
+        description="检索前 hook：多路查询扩展（expand/decompose），关闭时走单条改写路径",
+    )
+    RAG_DECOMPOSE: bool = Field(
+        default=False,
+        description="检索前 hook：复合问题分解（decompose），需 RAG_MULTI_QUERY 同为 True 时生效",
+    )
+    RAG_HYDE: bool = Field(
+        default=False,
+        description="检索前 hook：在线 HyDE 假想答案生成",
+    )
+    RAG_QUESTION_REFINE: bool = Field(
+        default=False,
+        description="检索前 hook：在线 HyPE 问题完整性判断 + HITL 反问补全（B5）",
+    )
+    RAG_LLM_EXTRACT: bool = Field(
+        default=False,
+        description="入库前 hook：LLM 知识抽取（故障→原因→解法因果链、步骤顺序、知识点抽象）",
+    )
+    RAG_DISTILL_EXPERT_GRAPH: bool = Field(
+        default=False,
+        description="入库前 hook：文档图→专家图蒸馏（需 RAG_LLM_EXTRACT 同为 True 时生效）",
+    )
+    RAG_GRAPH_TRAVERSAL_LLM: bool = Field(
+        default=False,
+        description="检索前 hook：LLM-in-the-loop 图遍历（B4），替代固定因果链 top3 遍历",
+    )
+    RAG_HITL_CONFIDENCE_THRESHOLD: float = Field(
+        default=0.5,
+        description="HITL 触发阈值：LLM 置信度低于此值时自动触发 HITL 弹窗（C 规则，保守默认）",
+    )
+
     # ===== Knowledge Base Ingestion =====
     KB_ALLOWED_EXTENSIONS: str = Field(default="md,txt,pdf,docx")
     KB_REQUIRED_METADATA_FIELDS: str = Field(default="title,source,category,tags")
@@ -333,6 +369,13 @@ class RAGConfig:
             "self_rag": self.settings.RAG_USE_SELF_RAG,
             "query_rewrite": self.settings.RAG_USE_QUERY_REWRITE,
             "reranking": self.settings.RAG_USE_RERANKING,
+            "question_refine": self.settings.RAG_QUESTION_REFINE,
+            "multi_query": self.settings.RAG_MULTI_QUERY,
+            "decompose": self.settings.RAG_DECOMPOSE,
+            "hyde": self.settings.RAG_HYDE,
+            "llm_extract": self.settings.RAG_LLM_EXTRACT,
+            "distill_expert_graph": self.settings.RAG_DISTILL_EXPERT_GRAPH,
+            "graph_traversal_llm": self.settings.RAG_GRAPH_TRAVERSAL_LLM,
         }
 
     @property
@@ -348,6 +391,24 @@ class RAGConfig:
             "enabled": self.settings.RAG_USE_RERANKING,
             "model": self.settings.RERANKER_MODEL,
             "threshold": self.settings.RERANKER_THRESHOLD,
+        }
+
+    @property
+    def pluggable(self) -> dict:
+        """P0-③ 可插拔开关集合。
+
+        每个开关独立控制对应 pre-execution hook；
+        全部为 False 时 pipeline 行为与现状逐字节一致。
+        """
+        return {
+            "multi_query": self.settings.RAG_MULTI_QUERY,
+            "decompose": self.settings.RAG_DECOMPOSE,
+            "hyde": self.settings.RAG_HYDE,
+            "question_refine": self.settings.RAG_QUESTION_REFINE,
+            "llm_extract": self.settings.RAG_LLM_EXTRACT,
+            "distill_expert_graph": self.settings.RAG_DISTILL_EXPERT_GRAPH,
+            "graph_traversal_llm": self.settings.RAG_GRAPH_TRAVERSAL_LLM,
+            "hitl_confidence_threshold": self.settings.RAG_HITL_CONFIDENCE_THRESHOLD,
         }
 
 

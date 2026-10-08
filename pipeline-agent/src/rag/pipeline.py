@@ -19,6 +19,7 @@ from .embeddings import HybridEmbeddings, get_embeddings
 from .vector_store import MilvusVectorStore, get_vector_store
 from .hybrid_retriever import HybridRetriever, RetrievalResult, get_retriever
 from .reranker import Reranker, RerankResult, get_reranker
+from .hooks import run_pre_retrieval_hooks
 from .self_rag import SelfRAG, RetrievalDecision, get_self_rag, get_query_rewriter
 from .graph_rag import GraphRAGRetriever
 
@@ -106,6 +107,20 @@ class RAGPipeline:
         self.self_rag = self_rag or get_self_rag()
         self.query_rewriter = get_query_rewriter()
         self.graph_rag = graph_rag or GraphRAGRetriever(get_knowledge_graph_builder())
+        # P0-③ 注册可插拔 pre-retrieval hooks（B5 问题完整性 + HITL 反问补全）
+        self._register_retrieval_hooks()
+
+    def _register_retrieval_hooks(self) -> None:
+        """注册已启用的 pre-retrieval hooks（P0-③ 可插拔基线）。
+
+        每个 hook 由独立开关控制（RAG_QUESTION_REFINE 等），默认关闭；
+        关闭时 hook 实现内部 no-op，pipeline 行为与现状逐字节一致。
+        """
+        try:
+            from .question_refiner import register_question_refine_hook
+            register_question_refine_hook()
+        except Exception as exc:
+            logger.warning(f"注册 question_refiner hook 失败（降级跳过）: {exc}")
         self._last_sparse_revision: Optional[str] = None
 
     def index_documents_report(
@@ -327,6 +342,25 @@ class RAGPipeline:
         if rag_config.features.get("query_rewrite", False):
             rewritten_query = self.query_rewriter.rewrite(query)
 
+        # P0-③ 检索前 hook：改写之后、plan_routes/retriever 执行之前调用。
+        # 由 config.RAG_MULTI_QUERY / RAG_HYDE / RAG_QUESTION_REFINE 等开关控制，
+        # 关闭时 run_pre_retrieval_hooks 是 no-op（返回原查询串），行为与现状逐字节一致。
+        # hook 内部异常自动降级，不阻断主链路。
+        pluggable = rag_config.pluggable
+        if any([
+            pluggable["multi_query"],
+            pluggable["decompose"],
+            pluggable["hyde"],
+            pluggable["question_refine"],
+            pluggable["graph_traversal_llm"],
+        ]):
+            rewritten_query = run_pre_retrieval_hooks(
+                query=rewritten_query,
+                decision=decision,
+                top_k=top_k or rag_config.retrieval["final_k"],
+                category_filter=category_filter,
+            )
+
         route_plan = self.self_rag.plan_routes(rewritten_query, decision)
         route_trace: List[RouteStepTrace] = []
         rerank_results: List[RerankResult] = []
@@ -517,6 +551,35 @@ class RAGPipeline:
         top_k: int,
         category_filter: Optional[str],
     ) -> tuple[List[RetrievalResult], List[RerankResult]]:
+        """混合检索单路。P0-③ 开关关闭时逐字节等价于改造前的实现。
+
+        当 multi_query / decompose 开关命中时，走多路查询（B1 扩召回）+ 问题
+        分解（B2 拆子问题）编排；任一 LLM 环节失败/超时自动降级回单查询路径。
+        """
+        pluggable = self._pluggable_features()
+
+        if pluggable.get("multi_query") or pluggable.get("decompose") or pluggable.get("hyde"):
+            try:
+                candidate_pool = self._collect_multi_query_candidates(
+                    query=query,
+                    top_k=top_k,
+                    category_filter=category_filter,
+                    decompose=pluggable.get("decompose"),
+                    hyde=pluggable.get("hyde"),
+                )
+                if candidate_pool:
+                    rerank_top_k = max(top_k * 2, top_k)
+                    reranked = self.reranker.rerank(
+                        query=query,
+                        results=candidate_pool,
+                        top_k=rerank_top_k,
+                    )
+                    reranked = self._dedupe_rerank_results(reranked)[:top_k]
+                    return candidate_pool, reranked
+            except Exception as exc:  # noqa: BLE001
+                # 降级兜底：多路/分解失败 → 回退单查询，不阻断主链路
+                logger.warning(f"多路查询/问题分解失败，降级为单查询: {exc}")
+
         retrieval_results = self.retriever.retrieve(
             query=query,
             top_k=top_k * 2,
@@ -533,6 +596,199 @@ class RAGPipeline:
         )
         reranked = self._dedupe_rerank_results(reranked)[:top_k]
         return retrieval_results, reranked
+
+    @staticmethod
+    def _pluggable_features() -> Dict[str, Any]:
+        """读取 P0-③ 可插拔开关（对缺失属性做防御，保证旧配置可用）。"""
+        try:
+            if hasattr(rag_config, "pluggable"):
+                return rag_config.pluggable
+        except Exception:  # noqa: BLE001
+            pass
+        return {"multi_query": False, "decompose": False}
+
+    def _build_multi_query_list(
+        self,
+        *,
+        base_query: str,
+        decompose: bool,
+        hyde: bool = False,
+    ) -> List[str]:
+        """B1+B2+B3(HyDE) 入口自动路由：生成需要执行多路检索的查询串列表。
+
+        - 开关 decompose 命中且 LLM 判定为复杂问题（置信度≥阈值）→ 先 B2 拆子问题，
+          每个子问题再各自 B1 扩召回；
+        - 简单问题 / 低置信度 / decompose 关闭 → 只走 B1 对 base_query 扩召回；
+        - 开关 hyde 命中 → 额外把 LLM 生成的假想答案（B3）并入查询串列表，
+          假想答案向量化后更易命中含答案细节的文档片段。
+
+        返回的列表始终含 base_query 本身（保证降级/无变体时行为不劣于单查询）。
+        任何 LLM 失败/超时都被 QueryRewriter 内部降级吞掉。
+        """
+        rewriter = self.query_rewriter
+        expanded = rewriter.expand(base_query, n=3)
+        simple_query_set = [base_query, *expanded]
+
+        if not decompose:
+            return self._append_hyde(simple_query_set, base_query, hyde)
+
+        decomposition = rewriter.decompose(base_query)
+        threshold = float(self._pluggable_features().get("hitl_confidence_threshold", 0.5))
+        is_complex = decomposition.get("complex")
+        confidence = float(decomposition.get("confidence", 0.0))
+
+        # C 规则：判定为复杂但置信度不足 → 不赌，走 HITL 弹窗让用户拍板走哪条路。
+        if is_complex and confidence < threshold:
+            self._trigger_low_confidence_hitl(base_query, decomposition, threshold)
+
+        sub_queries = decomposition.get("sub_queries") or []
+        if not is_complex or not sub_queries:
+            return self._append_hyde(simple_query_set, base_query, hyde)
+
+        # 复杂问题：每个子问题各自 B1 扩召回，再汇总
+        multi: List[str] = []
+        seen = set()
+        for sub in sub_queries:
+            sub_text = (sub or "").strip()
+            if not sub_text or sub_text in seen:
+                continue
+            seen.add(sub_text)
+            multi.append(sub_text)
+            for variant in rewriter.expand(sub_text, n=3):
+                if variant and variant not in seen:
+                    seen.add(variant)
+                    multi.append(variant)
+        return self._append_hyde([base_query, *multi], base_query, hyde)
+
+    def _append_hyde(self, query_list: List[str], base_query: str, hyde: bool) -> List[str]:
+        """B3 在线 HyDE：开关命中时生成假想答案并入查询串列表。
+
+        假想答案作为额外检索串（与 base_query/变体并列召回，再走 RRF 去重重排）。
+        LLM 失败/降级（返回空串）时列表保持不变，行为不劣于未开 HyDE。
+        """
+        if not hyde:
+            return query_list
+        hyde_answer = self.query_rewriter.hyde(base_query)
+        if hyde_answer and hyde_answer.strip() not in {q.strip() for q in query_list}:
+            return [*query_list, hyde_answer.strip()]
+        return query_list
+
+    def _trigger_low_confidence_hitl(
+        self,
+        query: str,
+        decomposition: Dict[str, Any],
+        threshold: float,
+    ) -> None:
+        """C 规则兜底：复杂/简单判定置信度低于阈值时，触发 HITL 弹窗让用户拍板。
+
+        失败静默降级（记录日志），绝不阻断检索主链路。
+        """
+        try:
+            from src.workflows.hitl import (
+                HITLManager,
+                HITLRequest,
+                HITLType,
+                get_hitl_manager,
+            )
+            import uuid
+
+            manager: HITLManager = get_hitl_manager()
+            request = HITLRequest(
+                request_id=str(uuid.uuid4()),
+                type=HITLType.PARAMETER_CONFIRM,
+                title="检索路径确认",
+                description=(
+                    f"系统对问题「{query}」判定为复杂问题，但置信度 "
+                    f"{float(decomposition.get('confidence', 0.0)):.2f} 低于阈值 "
+                    f"{threshold:.2f}，不确定该走问题分解(B2)还是多路扩召回(B1)。"
+                    "请拍板走哪条路。"
+                ),
+                options=[
+                    {"key": "decompose", "label": "走问题分解(B2)"},
+                    {"key": "expand", "label": "只走多路扩召回(B1)"},
+                ],
+                data={"query": query, "decomposition": decomposition, "threshold": threshold},
+                default_option="expand",
+            )
+            manager.create_request(
+                session_id="retrieval-rag",
+                request=request,
+                trace_id="rag-multi-query",
+            )
+            logger.info(
+                f"多路/分解判定置信度不足，已触发 HITL 弹窗 (query={query!r})"
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"HITL 弹窗触发失败，静默降级走 B1: {exc}")
+
+    def _collect_multi_query_candidates(
+        self,
+        *,
+        query: str,
+        top_k: int,
+        category_filter: Optional[str],
+        decompose: bool,
+        hyde: bool = False,
+    ) -> List[RetrievalResult]:
+        """对 B1/B2/B3(HyDE) 生成的每个查询串各调一次检索，合并后按 RRF 逻辑去重重排。
+
+        复用 retriever 自带的 RRF/融合：每个查询串的候选都走 retriever.retrieve
+        （内部已含 dense+sparse+RRF），再按 chunk 身份去重合并，秩融合重排。
+        """
+        query_list = self._build_multi_query_list(base_query=query, decompose=decompose, hyde=hyde)
+        ordered: List[str] = []
+        seen = set()
+        for q in query_list:
+            key = (q or "").strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            ordered.append(key)
+
+        per_query_candidates: List[RetrievalResult] = []
+        for q in ordered:
+            results = self.retriever.retrieve(
+                query=q,
+                top_k=top_k * 2,
+                category_filter=category_filter,
+            )
+            per_query_candidates.extend(results)
+
+        return self._merge_and_rerank_candidates(per_query_candidates, top_k * 2)
+
+    @staticmethod
+    def _merge_and_rerank_candidates(
+        results: List[RetrievalResult],
+        top_k: int,
+    ) -> List[RetrievalResult]:
+        """多路检索结果去重合并（RRF 风格的秩融合 + 去重）。
+
+        复用 hybrid_retriever 的 RRF 思路（k=60）：对同一 chunk 在多路中出现的，
+        累加 1/(k+rank) 的秩分；每个 chunk 保留最高分的那份结果，按秩分降序返回。
+        不复制一套融合逻辑。
+        """
+        k = 60
+        fused_score: Dict[str, float] = {}
+        best: Dict[str, RetrievalResult] = {}
+
+        for rank, item in enumerate(results, 1):
+            key = RAGPipeline._result_identity_key(item)
+            fused_score[key] = fused_score.get(key, 0.0) + 1.0 / (k + rank)
+            prev = best.get(key)
+            if prev is None or item.score > prev.score:
+                best[key] = item
+
+        merged = [best[key] for key in fused_score]
+        merged.sort(key=lambda r: (-fused_score[RAGPipeline._result_identity_key(r)], -r.score))
+        return merged[:top_k]
+
+    @staticmethod
+    def _result_identity_key(result: RetrievalResult) -> str:
+        """多路去重键：按 chunk 身份（chunk_id + doc_id + 内容前缀）去重。"""
+        parent_key = RAGPipeline._extract_parent_chunk_key(result.chunk_id)
+        if parent_key:
+            return f"parent|{result.doc_id}|{parent_key}"
+        return f"chunk|{result.doc_id}|{result.chunk_id}|{result.content[:120]}"
 
     def _run_database_route(self, query: str, top_k: int) -> List[Dict[str, Any]]:
         from src.agents import get_data_agent

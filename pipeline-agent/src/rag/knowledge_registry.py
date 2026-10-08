@@ -23,6 +23,7 @@ from src.models.enums import KnowledgeCategory
 from src.utils import logger
 
 from .document_processor import DocumentProcessor
+from .hooks import run_pre_ingestion_hooks
 from .pipeline import get_rag_pipeline
 
 
@@ -204,6 +205,19 @@ class KnowledgeBaseRegistry:
         progress_percent = 0
         pipeline = get_rag_pipeline()
         document_graph_registry = create_document_graph_registry(str(self.root_path))
+
+        # P0-③ 入库前 hook：解析落盘之后、upsert_document 抽实体之前调用。
+        # 由 config.RAG_LLM_EXTRACT / RAG_DISTILL_EXPERT_GRAPH 等开关控制，
+        # 关闭时 run_pre_ingestion_hooks 是 no-op（返回空列表），行为与现状逐字节一致。
+        # hook 内部异常自动降级，不阻断主链路。
+        if settings.RAG_LLM_EXTRACT or settings.RAG_DISTILL_EXPERT_GRAPH:
+            run_pre_ingestion_hooks(
+                document=document,
+                pipeline=pipeline,
+                registry=self,
+                root_path=str(self.root_path),
+            )
+
         try:
             indexing_report = pipeline.add_document_report(str(target_path))
             indexed = bool(indexing_report.success)

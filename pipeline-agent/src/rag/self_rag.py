@@ -4,6 +4,7 @@ Self-RAG and CRAG helpers.
 
 from __future__ import annotations
 
+import json
 import re
 from enum import Enum
 from typing import List, Optional, Tuple
@@ -17,6 +18,57 @@ from src.models.enums import RetrievalQuality
 from src.utils import logger
 
 from .reranker import RerankResult
+
+# P0-③ 可插拔开关（默认全关）：multi_query / decompose 的 LLM 调用超时上限（秒）。
+_MULTI_QUERY_LLM_TIMEOUT_SECONDS = 20
+
+
+def _default_llm_call(prompt: ChatPromptTemplate, values: dict, *, llm: ChatOpenAI, timeout: int) -> str:
+    """可替换的 LLM 调用切点。
+
+    统一走 src/llm/llm_client.get_llm_client().complete()（与 A 类入库
+    knowledge_ingest.py 同一封装）：渲染 ChatPromptTemplate 为纯文本后调用，
+    超时/网络/配置异常统一抛 LLMClientError，此处捕获后返回空串，触发上层
+    既有降级（expand 返回 []、decompose 判为简单问题 complex=False），
+    行为与改造前"LLM 失败/超时降级"完全一致。
+
+    注意：参数 ``llm``（ChatOpenAI 实例）保留以维持签名与 pipeline 注入兼容，
+    切点后不再实际使用；真实 LLM 走单例 get_llm_client()。
+    """
+    from src.llm import LLMClientError, get_llm_client
+
+    # 渲染 ChatPromptTemplate（system+user）为纯文本：先 format 成 user 串，
+    # system 若存在则透传给 complete() 的 system 参数。
+    user_text = prompt.format(**values)
+    system_text: Optional[str] = None
+    if getattr(prompt, "prompt_type", None) is not None:
+        # 仅当 template 含独立 system 消息时提取；普通单段 template 保持 system=None
+        msgs = prompt.format_messages(**values)
+        if len(msgs) > 1 and getattr(msgs[0], "type", None) == "system":
+            system_text = str(getattr(msgs[0], "content", ""))
+            user_text = str(getattr(msgs[-1], "content", user_text))
+    try:
+        return get_llm_client().complete(
+            user_text,
+            system=system_text,
+            timeout=float(timeout),
+        )
+    except LLMClientError:
+        logger.warning(
+            "multi-query LLM 调用失败/超时，降级跳过该路（timeout=%ss）", timeout,
+        )
+        return ""
+
+
+def _pluggable() -> dict:
+    """读取 P0-③ 可插拔开关（对缺失属性做防御，保证旧配置也可用）。"""
+    if hasattr(rag_config, "pluggable"):
+        return rag_config.pluggable
+    return {
+        "multi_query": False,
+        "decompose": False,
+        "hitl_confidence_threshold": 0.5,
+    }
 
 
 class RetrievalDecision(Enum):
@@ -308,8 +360,44 @@ class QueryRewriter:
 4. 直接输出改写后的问题
 """
 
-    def __init__(self) -> None:
+    EXPAND_PROMPT = """你是检索增强助手。请把下面这个问题改写成 {n} 个"语义相近、但措辞/角度不同"的检索变体，用于扩大召回。
+
+原始问题: {query}
+
+要求:
+1. 每个变体必须与原问题指向同一件事，只换问法/角度/同义实体，不得改变语义
+2. 各变体之间尽量不重复、覆盖不同关键词
+3. 保留关键实体名与字段名
+4. 严格按 JSON 数组输出 {n} 个字符串，不要任何解释文字
+示例输出: ["变体一", "变体二", "变体三"]
+"""
+
+    DECOMPOSE_PROMPT = """你是检索增强助手。请判断用户问题是否为"复合问题"，并给出拆解结果。
+
+用户问题: {query}
+
+要求:
+1. 若问题是复合的（包含多个相互独立或递进的子问题），把它拆成子问题列表；例如"泵站压力为什么低、怎么修、大概多少钱"应拆成 3 个子问题。
+2. 若问题是单一维度的简单问题，子问题列表只含 1 条（即原问题本身）。
+3. 同时给出你判断"这是简单问题还是复杂问题"的置信度（0.0~1.0）。
+4. 严格按 JSON 对象输出，格式：
+{{"complex": true/false, "confidence": 0.85, "sub_queries": ["子问题一", "子问题二"]}}
+"""
+
+    HYDE_PROMPT = """你是检索增强助手（HyDE）。请针对下面的问题，写一段"假想参考答案"，用于作为检索串去召回相关文档片段。
+
+问题: {query}
+
+要求:
+1. 直接输出假想答案本身（2-4 句），不要解释、不要标题、不要 JSON。
+2. 答案要包含该问题最可能涉及的关键实体、术语、数值或操作要点，使其向量化后能命中相关文档。
+3. 若问题很专业，用领域术语作答；保持与问题同一语境。
+"""
+
+    def __init__(self, llm_call=_default_llm_call, llm_timeout: int = _MULTI_QUERY_LLM_TIMEOUT_SECONDS) -> None:
         self._llm: Optional[ChatOpenAI] = None
+        self._llm_call = llm_call
+        self._llm_timeout = llm_timeout
 
     @property
     def llm(self) -> ChatOpenAI:
@@ -333,6 +421,130 @@ class QueryRewriter:
         except Exception as exc:  # noqa: BLE001
             logger.warning(f"查询改写失败: {exc}")
             return query
+
+    def expand(self, query: str, n: int = 3) -> List[str]:
+        """把 1 个问题扩成 n 个语义相近的检索变体（不同措辞/角度）——B1 多路查询。
+
+        失败/超时自动降级：返回空列表，由调用方回退到单查询路径。
+        """
+        n = max(1, int(n or 1))
+        prompt = ChatPromptTemplate.from_template(self.EXPAND_PROMPT)
+        try:
+            raw = self._llm_call(prompt, {"query": query, "n": n}, llm=self.llm, timeout=self._llm_timeout)
+            variants = self._parse_string_list(raw)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"多路查询扩展失败，降级为单查询: {exc}")
+            return []
+        # 去重 + 过滤空串 + 剔除与原问题完全相同的，保留顺序
+        seen = set()
+        result: List[str] = []
+        base = query.strip()
+        for item in variants:
+            text = (item or "").strip()
+            if not text or text == base or text in seen:
+                continue
+            seen.add(text)
+            result.append(text)
+        return result[:n]
+
+    def decompose(self, query: str) -> dict:
+        """把复合问题拆成相互独立/递进的子问题——B2 分解。
+
+        返回 {"complex": bool, "confidence": float, "sub_queries": [str, ...]}。
+        失败/超时自动降级：判定为简单问题（complex=False），不阻断主流程。
+        """
+        prompt = ChatPromptTemplate.from_template(self.DECOMPOSE_PROMPT)
+        try:
+            raw = self._llm_call(prompt, {"query": query}, llm=self.llm, timeout=self._llm_timeout)
+            parsed = self._parse_json_object(raw)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"问题分解失败，降级为简单问题路径: {exc}")
+            parsed = None
+        if not parsed:
+            return {"complex": False, "confidence": 0.0, "sub_queries": []}
+        sub_queries = [s for s in self._parse_string_list(parsed.get("sub_queries")) if s]
+        confidence = self._coerce_confidence(parsed.get("confidence"))
+        complex_flag = bool(parsed.get("complex"))
+        # 无子问题时视为简单
+        if not sub_queries:
+            complex_flag = False
+        return {"complex": complex_flag, "confidence": confidence, "sub_queries": sub_queries}
+
+    def hyde(self, query: str) -> str:
+        """生成假想答案（B3 在线 HyDE）——检索时先 LLM 写一段假想答案，
+
+        用它作为额外检索串去召回（向量化的假想答案比原始短问题更易命中
+        含答案细节的文档片段）。失败/超时自动降级：返回空串，调用方回退
+        到不含 HyDE 串的路径，不阻断主流程。
+        """
+        prompt = ChatPromptTemplate.from_template(self.HYDE_PROMPT)
+        try:
+            raw = self._llm_call(
+                prompt, {"query": query}, llm=self.llm, timeout=self._llm_timeout
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"HyDE 假想答案生成失败，降级跳过 HyDE 串: {exc}")
+            return ""
+        return (raw or "").strip()
+
+    @staticmethod
+    def _parse_string_list(raw) -> List[str]:
+        """从 LLM 输出里稳健地解析出字符串列表（容忍前后夹带的解释文字）。
+
+        raw 可能是已解析的 list（decompose 复用）或原始文本（expand）。
+        """
+        if isinstance(raw, list):
+            return [str(item).strip() for item in raw if str(item).strip()]
+        text = (raw or "").strip()
+        if not text:
+            return []
+        try:
+            candidate = text
+            if candidate.startswith("["):
+                end = candidate.rfind("]")
+                if end != -1:
+                    candidate = candidate[: end + 1]
+            data = json.loads(candidate)
+            if isinstance(data, list):
+                return [str(item).strip() for item in data if str(item).strip()]
+        except (json.JSONDecodeError, ValueError):
+            pass
+        # 兜底：逐行/逐条抽取引号内文本
+        found = re.findall(r"[\"\u201c]([^\"\u201d]+)[\"\u201d]", text)
+        if found:
+            return [item.strip() for item in found if item.strip()]
+        lines = [line.strip(" \t-•\n") for line in text.splitlines()]
+        return [line for line in lines if line]
+
+    @staticmethod
+    def _parse_json_object(raw: str) -> Optional[dict]:
+        text = (raw or "").strip()
+        if not text:
+            return None
+        try:
+            candidate = text
+            if candidate.startswith("{"):
+                end = candidate.rfind("}")
+                if end != -1:
+                    candidate = candidate[: end + 1]
+            data = json.loads(candidate)
+            if isinstance(data, dict):
+                return data
+        except (json.JSONDecodeError, ValueError):
+            pass
+        return None
+
+    @staticmethod
+    def _coerce_confidence(value) -> float:
+        try:
+            conf = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        if conf < 0:
+            return 0.0
+        if conf > 1:
+            return 1.0
+        return conf
 
 
 _self_rag: Optional[SelfRAG] = None
