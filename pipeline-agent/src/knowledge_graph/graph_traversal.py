@@ -217,9 +217,10 @@ class GraphTraversalPlanner:
         for cand in allowed:
             if cand in actual or actual in cand:
                 return True
-            # 前缀兜底：共享词干（取概念名 4 字符）
-            stem = cand[:4]
-            if stem and stem in actual[:6]:
+            # 词干兜底：去尾辅音（s 等）取前 3 字符，如 solution→sol 命中 solved_by，
+            # references→ref 命中 reference
+            stem = cand[:3]
+            if stem and stem in actual:
                 return True
         return False
 

@@ -66,9 +66,7 @@ def _default_llm_call(prompt: ChatPromptTemplate, values: dict, *, llm: ChatOpen
             timeout=float(timeout),
         )
     except LLMClientError:
-        logger.warning(
-            "multi-query LLM 调用失败/超时，降级跳过该路（timeout=%ss）", timeout,
-        )
+        logger.warning("multi-query LLM 调用失败/超时，降级跳过该路（timeout={}s）", timeout)
         return ""
 
 

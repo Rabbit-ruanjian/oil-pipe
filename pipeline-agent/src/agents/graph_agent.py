@@ -119,7 +119,21 @@ class GraphAgent:
             return None
 
         node_ids = graph.match_nodes_by_text(query) or []
-        edge_types = ["cause", "solution", "REFERENCES", "CONTAINS"]
+        # 图谱有故障因果数据（fault/case/cause/solution 前缀节点）时才给 cause/solution
+        # 概念边；否则（纯文档图 references/contains）让 planner 默认计划兜底，避免
+        # 概念边与实际边类型错位导致遍历空转（reached={} 只到起点）。
+        # 注意：fault_cause 查询可能匹配到 ent:: 文档实体（如"压力低"→ent 节点），
+        # 此时按 query_type 显式声明优先，仍走因果边。
+        causal_nodes = [n for n in node_ids if n.startswith(("fault", "case", "cause", "sol"))]
+        # 起点选择：fault_cause 查询优先因果节点（fault/case/cause/sol 前缀）；
+        # 没有因果节点时退回匹配到的文档实体（ent/sec），让 B4 有界 BFS 能展开 references。
+        if query_type in ("fault_cause", "equipment_chain") and causal_nodes:
+            node_ids = causal_nodes
+        edge_types: list[str]
+        if query_type in ("fault_cause", "equipment_chain") or causal_nodes:
+            edge_types = ["cause", "solution"]
+        else:
+            edge_types = ["references", "contains"]
         plan = planner.plan(query=query, node_ids=node_ids, edge_types=edge_types)
         if plan is None:
             return None
@@ -132,9 +146,20 @@ class GraphAgent:
                 return result
             return {"result": result}
 
-        if isinstance(result, (dict, list)):
-            return json.dumps(result, ensure_ascii=False)
-        return str(result)
+        if isinstance(result, str):
+            try:
+                parsed = json.loads(result)
+            except (json.JSONDecodeError, ValueError):
+                parsed = None
+            if isinstance(parsed, dict):
+                return parsed
+            return {"message": result}
+
+        if isinstance(result, dict):
+            return result
+        if isinstance(result, list):
+            return {"items": result}
+        return {"value": str(result)}
 
     def _summarize_result(self, *, query: str, query_type: str, result: Any) -> str:
         result_text = (
