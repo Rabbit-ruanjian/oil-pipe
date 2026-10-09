@@ -617,3 +617,45 @@ async def get_knowledge_stats():
     except Exception as exc:  # noqa: BLE001
         logger.error(f"Knowledge stats failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+class AutoRouteRequest(BaseModel):
+    """POST /knowledge/auto-route 请求：对话入口 LLM 自动路由（B4 图 / B1B2B3 检索）。"""
+
+    question: str = Field(..., min_length=1, max_length=500)
+    top_k: int = Field(default=5, ge=1, le=20)
+
+
+class AutoRouteResponse(BaseModel):
+    """自动路由结果。route=fault_cause/equipment_chain 时 graph 为图查询结果；
+    route=retrieve/default 时 sources 为检索来源列表。"""
+
+    route: str
+    reason: str
+    graph: Optional[Any] = None
+    sources: Optional[list] = None
+
+
+@router.post("/auto-route", response_model=AutoRouteResponse)
+async def auto_route_knowledge(request: AutoRouteRequest):
+    """对话入口自动路由（RAG_AUTO_ROUTE 门控，可插拔默认关）。
+
+    LLM 判定走 B4 图查询（fault_cause/equipment_chain）还是 B1B2B3 检索
+    （retrieve）；开关关 / LLM 失败 → route=default 走默认检索，行为不变。
+    """
+
+    from src.agents.knowledge_agent import get_knowledge_agent
+
+    try:
+        out = await run_in_threadpool(
+            get_knowledge_agent().auto_route_search, request.question, request.top_k
+        )
+        return AutoRouteResponse(
+            route=out.get("route", "default"),
+            reason=out.get("reason", ""),
+            graph=out.get("graph"),
+            sources=out.get("sources"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.error(f"Knowledge auto-route failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

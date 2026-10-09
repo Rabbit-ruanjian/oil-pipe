@@ -1,5 +1,6 @@
 import { useUserStore } from '../stores/userStore';
 import type {
+  AutoRouteResponse,
   DynamicReportRequestPayload,
   DynamicReportResponsePayload,
   HITLResponse,
@@ -144,6 +145,15 @@ export const agentApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ query: payload.query, top_k: payload.topK ?? 3 }),
+    });
+  },
+
+  /** 对话入口 LLM 自动路由（RAG_AUTO_ROUTE 门控）：B4 图 / B1B2B3 检索 */
+  async autoRouteKnowledge(payload: { question: string; topK?: number }) {
+    return requestAgent<AutoRouteResponse>('/knowledge/auto-route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: payload.question, top_k: payload.topK ?? 5 }),
     });
   },
 

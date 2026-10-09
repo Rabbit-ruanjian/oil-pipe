@@ -9,12 +9,32 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
-from src.config import settings
+from src.config import settings, rag_config
 from src.skills import get_skill_runtime
 from src.utils import logger
 from src.rag import get_rag_pipeline, RAGResponse
 from src.models.enums import RetrievalQuality
 from src.rag.self_rag import RetrievalDecision
+
+# LLM 自动路由（对话入口）：判定走 B4 图查询 / B1B2B3 检索。
+# 可插拔：RAG_AUTO_ROUTE 开关关时 auto_route() 返回 None，调用方走原默认检索路径，逐字节不变。
+_AUTO_ROUTE_SYSTEM = (
+    "你是查询路由器。给定用户问题，输出严格 JSON {\"query_type\": str, \"reason\": str}。"
+    "query_type 只能取三个值之一："
+    "fault_cause（故障排查→B4 因果链图查询）、"
+    "equipment_chain（设备/部件/规范组成关系→B4 一般图查询）、"
+    "retrieve（概念、操作、知识检索→B1/B2/B3 多路检索）。"
+    "判定准则：问题涉及'故障/异常/压力低/泄漏/原因/处置'且指向具体设备或现象 → fault_cause；"
+    "问题问设备/部件/泵站的组成、安装、输送关系 → equipment_chain；"
+    "其余（概念定义、操作规程、知识类）→ retrieve。"
+)
+
+# 对话路由 → /graph/query 的 query_type（P1 结构化入参）映射
+_ROUTE_TO_GRAPH_QUERY_TYPE = {
+    "fault_cause": "fault_cause",
+    "equipment_chain": "equipment_chain",
+    "retrieve": None,
+}
 
 
 class KnowledgeAgent:
@@ -211,6 +231,90 @@ class KnowledgeAgent:
         except Exception as e:
             logger.error(f"降级回答失败: {e}")
             return "抱歉，知识库中未找到与您问题相关的内容。请尝试换一种方式提问。"
+
+    def auto_route(self, question: str):
+        """对话入口 LLM 自动路由（可插拔，RAG_AUTO_ROUTE 门控）。
+
+        返回 {"route": "graph_fault"|"graph_general"|"retrieve", "reason": str}，
+        或 None（开关关 / LLM 失败 → 调用方走默认检索路径，行为不变）。
+
+        全部 LLM 调用走 src/llm.get_llm_client()（LLMClientError 降级），
+        与 B1/B2/B3/B4/B5 切点统一。
+        """
+        try:
+            if not rag_config.pluggable.get("auto_route", False):
+                return None
+        except Exception:  # noqa: BLE001
+            return None
+
+        from src.llm import get_llm_client, LLMClientError
+
+        try:
+            client = get_llm_client()
+            raw = client.complete(
+                f"用户问题: {question}\n请输出路由决策（严格 JSON）。",
+                system=_AUTO_ROUTE_SYSTEM,
+                timeout=30.0,
+            )
+            import json
+
+            text = (raw or "").strip()
+            if text.startswith("{"):
+                end = text.rfind("}")
+                if end != -1:
+                    text = text[: end + 1]
+            data = json.loads(text)
+            if not isinstance(data, dict):
+                return None
+            qtype = str(data.get("query_type", "")).strip()
+            if qtype not in _ROUTE_TO_GRAPH_QUERY_TYPE:
+                return None
+            return {
+                "route": qtype,
+                "reason": str(data.get("reason", ""))[:200],
+                "graph_query_type": _ROUTE_TO_GRAPH_QUERY_TYPE[qtype],
+            }
+        except LLMClientError as exc:
+            logger.warning(f"auto_route LLM 失败，走默认检索: {exc}")
+            return None
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"auto_route 异常，走默认检索: {exc}")
+            return None
+
+    def auto_route_search(self, question: str, top_k: int = 5) -> Dict[str, Any]:
+        """对话入口自动路由编排（RAG_AUTO_ROUTE 门控）。
+
+        LLM 判定路由后执行对应链路：
+          - fault_cause / equipment_chain → GraphAgent.execute(query, query_type=...)
+          - retrieve → 本 agent 的 RAG 检索（B1/B2/B3 由 pipeline 开关门控）
+        开关关 / LLM 失败 / 路由不可用 → route="default"，走默认 RAG 检索，行为不变。
+        """
+        decision = self.auto_route(question)
+        if decision is None:
+            route, reason, graph_type = "default", "开关关或 LLM 失败，走默认检索", None
+        else:
+            route, reason = decision["route"], decision.get("reason", "")
+            graph_type = decision.get("graph_query_type")
+
+        result: Dict[str, Any]
+        if route in ("fault_cause", "equipment_chain") and graph_type:
+            try:
+                from src.agents.graph_agent import get_graph_agent
+
+                graph_out = get_graph_agent().execute(question, query_type=graph_type)
+                result = {"graph": graph_out}
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"auto_route 图查询失败，降级检索: {exc}")
+                result = {"graph": f"图查询失败: {exc}"}
+        else:
+            try:
+                sources = self.search_knowledge(question, top_k=top_k)
+                result = {"sources": sources}
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(f"auto_route 检索失败: {exc}")
+                result = {"sources": []}
+
+        return {"route": route, "reason": reason, **result}
 
     def search_knowledge(self, query: str, top_k: int = 5) -> List[Dict]:
         """

@@ -182,6 +182,7 @@ export default function KnowledgeBase() {
   const [graphQueryType, setGraphQueryType] = useState('');
   const [graphResult, setGraphResult] = useState<KnowledgeGraphQueryPayload | null>(null);
   const [graphQuerying, setGraphQuerying] = useState(false);
+  const [graphView, setGraphView] = useState<'traversal' | 'kanban'>('traversal');
 
   const handleGraphQuery = async () => {
     if (!graphQuery.trim()) {
@@ -196,6 +197,41 @@ export default function KnowledgeBase() {
       message.error(error instanceof Error ? error.message : '图谱查询失败');
     } finally {
       setGraphQuerying(false);
+    }
+  };
+
+  // 看板列定义（按节点类型分组，与 B4 遍历结果联动）
+  const KANBAN_COLUMNS: { key: string; label: string; color: string }[] = [
+    { key: 'fault', label: '故障 fault', color: 'red' },
+    { key: 'cause', label: '原因 cause', color: 'orange' },
+    { key: 'solution', label: '处置 solution', color: 'green' },
+    { key: 'standard', label: '规范 standard', color: 'lime' },
+    { key: 'parameter', label: '参数 parameter', color: 'cyan' },
+  ];
+
+  // ---- 对话入口 LLM 自动路由（B4 图 / B1B2B3 检索自选）----
+  const [autoRouteQuestion, setAutoRouteQuestion] = useState('');
+  const [autoRouteResult, setAutoRouteResult] = useState<import('../../types/agent').AutoRouteResponse | null>(null);
+  const [autoRouting, setAutoRouting] = useState(false);
+
+  const handleAutoRoute = async () => {
+    if (!autoRouteQuestion.trim()) {
+      message.warning('请输入问题');
+      return;
+    }
+    setAutoRouting(true);
+    try {
+      const result = await agentApi.autoRouteKnowledge({ question: autoRouteQuestion.trim() });
+      setAutoRouteResult(result);
+      if (result.route === 'fault_cause' || result.route === 'equipment_chain') {
+        // 自动路由判为图查询 → 同时回填到 B4 查询框，联动看板
+        setGraphQuery(autoRouteQuestion.trim());
+        setGraphResult(null);
+      }
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '自动路由失败');
+    } finally {
+      setAutoRouting(false);
     }
   };
 
@@ -404,7 +440,24 @@ export default function KnowledgeBase() {
           </Space>
         </Card>
 
-        <Card title="图谱查询（B4 LLM-in-the-loop 遍历）">
+        <Card
+          title="图谱查询（B4 LLM-in-the-loop 遍历）"
+          extra={
+            <Space>
+              <Text type="secondary">视图</Text>
+              <Select
+                size="small"
+                style={{ width: 110 }}
+                value={graphView}
+                onChange={(value) => setGraphView(value as 'traversal' | 'kanban')}
+                options={[
+                  { label: '遍历结果', value: 'traversal' },
+                  { label: '看板', value: 'kanban' },
+                ]}
+              />
+            </Space>
+          }
+        >
           <Space direction="vertical" size={12} style={{ width: '100%' }}>
             <Space wrap style={{ width: '100%' }}>
               <Input
@@ -429,37 +482,172 @@ export default function KnowledgeBase() {
                 查询
               </Button>
             </Space>
-            {graphResult && (
-              <Collapse
-                size="small"
-                items={[
-                  {
-                    key: 'plan',
-                    label: `遍历计划（起点 ${graphResult.result?.plan?.start_node_id ?? '-'}，${
-                      graphResult.result?.path_count ?? 0
-                    } 节点）`,
-                    children: (
-                      <pre style={{ margin: 0, fontSize: 12, color: '#555' }}>
-                        {JSON.stringify(graphResult.result?.plan ?? {}, null, 2)}
-                      </pre>
-                    ),
-                  },
-                  {
-                    key: 'reached',
-                    label: `到达节点（${Object.keys(graphResult.result?.reached ?? {}).length} 个）`,
-                    children: (
-                      <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                        {Object.entries(graphResult.result?.reached ?? {}).map(([node, meta]) => (
-                          <Tag key={node}>{node} ← {meta.via ?? '-'}</Tag>
-                        ))}
-                        {Object.keys(graphResult.result?.reached ?? {}).length === 0 && (
-                          <Text type="secondary">未展开（起点无匹配边或 LLM 不可用降级）</Text>
-                        )}
-                      </Space>
-                    ),
-                  },
-                ]}
+            {graphView === 'traversal' ? (
+              graphResult && (
+                <Collapse
+                  size="small"
+                  items={[
+                    {
+                      key: 'plan',
+                      label: `遍历计划（起点 ${graphResult.result?.plan?.start_node_id ?? '-'}，${
+                        graphResult.result?.path_count ?? 0
+                      } 节点）`,
+                      children: (
+                        <pre style={{ margin: 0, fontSize: 12, color: '#555' }}>
+                          {JSON.stringify(graphResult.result?.plan ?? {}, null, 2)}
+                        </pre>
+                      ),
+                    },
+                    {
+                      key: 'reached',
+                      label: `到达节点（${Object.keys(graphResult.result?.reached ?? {}).length} 个）`,
+                      children: (
+                        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                          {Object.entries(graphResult.result?.reached ?? {}).map(([node, meta]) => (
+                            <Tag key={node}>{node} ← {meta.via ?? '-'}</Tag>
+                          ))}
+                          {Object.keys(graphResult.result?.reached ?? {}).length === 0 && (
+                            <Text type="secondary">未展开（起点无匹配边或 LLM 不可用降级）</Text>
+                          )}
+                        </Space>
+                      ),
+                    },
+                  ]}
+                />
+              )
+            ) : (
+              <div>
+                <Text type="secondary" style={{ marginBottom: 8, display: 'block' }}>
+                  看板模式：按节点类型分列（fault / cause / solution / standard / parameter），
+                  展示 B4 遍历到达的节点；尚未查询时列内为空
+                </Text>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(5, 1fr)',
+                    gap: 10,
+                    alignItems: 'start',
+                  }}
+                >
+                  {KANBAN_COLUMNS.map((col) => {
+                    const reached = graphResult?.result?.reached ?? {};
+                    const nodes = Object.keys(reached).filter((id) =>
+                      id.startsWith(col.key),
+                    );
+                    const isStart = col.key === 'fault' &&
+                      graphResult?.result?.plan?.start_node_id === 'fault_001';
+                    return (
+                      <div
+                        key={col.key}
+                        style={{
+                          background: '#fafafa',
+                          border: '1px solid #f0f0f0',
+                          borderRadius: 8,
+                          padding: 10,
+                          minHeight: 120,
+                        }}
+                      >
+                        <Space
+                          style={{
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            marginBottom: 8,
+                          }}
+                        >
+                          <Tag color={col.color}>{col.label}</Tag>
+                          <Text type="secondary">{nodes.length + (isStart ? 1 : 0)}</Text>
+                        </Space>
+                        <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                          {isStart && (
+                            <Card size="small" style={{ width: '100%' }}>
+                              <Text strong>fault_001</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                起点（泵站出口压力下降）
+                              </Text>
+                            </Card>
+                          )}
+                          {nodes.map((id) => (
+                            <Card key={id} size="small" style={{ width: '100%' }}>
+                              <Text strong>{id}</Text>
+                              <br />
+                              <Text type="secondary" style={{ fontSize: 11 }}>
+                                via {reached[id]?.via ?? '-'}
+                              </Text>
+                            </Card>
+                          ))}
+                          {nodes.length === 0 && !isStart && (
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              （无）
+                            </Text>
+                          )}
+                        </Space>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </Space>
+        </Card>
+
+        <Card title="对话入口 · LLM 自动路由（B4 图 / B1B2B3 检索自选）">
+          <Space direction="vertical" size={12} style={{ width: '100%' }}>
+            <Text type="secondary">
+              输入任意问题，LLM 自动判定走 B4 因果链图查询（fault_cause / equipment_chain）还是
+              B1/B2/B3 多路检索（retrieve / 默认）。开关关或 LLM 失败时降级默认检索，行为不变。
+            </Text>
+            <Space wrap style={{ width: '100%' }}>
+              <Input
+                placeholder="例如：泵站出口压力下降怎么办 / 什么是雷诺数"
+                style={{ width: 360 }}
+                value={autoRouteQuestion}
+                onChange={(e) => setAutoRouteQuestion(e.target.value)}
+                onPressEnter={() => void handleAutoRoute()}
               />
+              <Button
+                type="primary"
+                icon={<SearchOutlined />}
+                loading={autoRouting}
+                onClick={() => void handleAutoRoute()}
+              >
+                自动路由
+              </Button>
+            </Space>
+            {autoRouteResult && (
+              <Card size="small">
+                <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                  <Space>
+                    <Tag
+                      color={
+                        autoRouteResult.route === 'fault_cause' ||
+                        autoRouteResult.route === 'equipment_chain'
+                          ? 'blue'
+                          : 'green'
+                      }
+                    >
+                      路由: {autoRouteResult.route}
+                    </Tag>
+                    <Text type="secondary">{autoRouteResult.reason}</Text>
+                  </Space>
+                  {(autoRouteResult.route === 'fault_cause' ||
+                    autoRouteResult.route === 'equipment_chain') && (
+                    <Text>
+                      已转入上方 B4 图谱查询框（自动回填 query，切到看板视图查看因果链节点）
+                    </Text>
+                  )}
+                  {autoRouteResult.sources && autoRouteResult.sources.length > 0 && (
+                    <Space direction="vertical" size={2}>
+                      <Text strong>检索来源（B1/B2/B3）：</Text>
+                      {autoRouteResult.sources.slice(0, 5).map((s) => (
+                        <Text key={s.doc_id} style={{ fontSize: 12 }}>
+                          - {s.doc_title}（{s.score.toFixed(4)}）
+                        </Text>
+                      ))}
+                    </Space>
+                  )}
+                </Space>
+              </Card>
             )}
           </Space>
         </Card>

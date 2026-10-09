@@ -307,6 +307,14 @@ export interface KnowledgeSearchResponse {
   };
 }
 
+/** 对话入口 LLM 自动路由（/knowledge/auto-route） */
+export interface AutoRouteResponse {
+  route: string;
+  reason: string;
+  graph?: unknown;
+  sources?: { doc_id: string; doc_title: string; score: number }[];
+}
+
 export interface KnowledgeDocumentListPayload {
   documents: KnowledgeDocumentSummary[];
   total: number;

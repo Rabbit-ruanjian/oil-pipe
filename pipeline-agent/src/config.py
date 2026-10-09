@@ -201,6 +201,10 @@ class Settings(BaseSettings):
         default=False,
         description="检索前 hook：LLM-in-the-loop 图遍历（B4），替代固定因果链 top3 遍历",
     )
+    RAG_AUTO_ROUTE: bool = Field(
+        default=False,
+        description="对话入口 hook：LLM 自动判定走 B4 图查询 / B1B2B3 检索（auto_route），关闭时走默认检索路径",
+    )
     RAG_HITL_CONFIDENCE_THRESHOLD: float = Field(
         default=0.5,
         description="HITL 触发阈值：LLM 置信度低于此值时自动触发 HITL 弹窗（C 规则，保守默认）",
@@ -408,6 +412,7 @@ class RAGConfig:
             "llm_extract": self.settings.RAG_LLM_EXTRACT,
             "distill_expert_graph": self.settings.RAG_DISTILL_EXPERT_GRAPH,
             "graph_traversal_llm": self.settings.RAG_GRAPH_TRAVERSAL_LLM,
+            "auto_route": self.settings.RAG_AUTO_ROUTE,
             "hitl_confidence_threshold": self.settings.RAG_HITL_CONFIDENCE_THRESHOLD,
         }
 
