@@ -247,11 +247,63 @@ export interface KnowledgeGraphQueryPayload {
     message?: string;
     total_matches?: number;
     center_node?: string | null;
-    matched_nodes: KnowledgeGraphNode[];
-    visualization: {
+    matched_nodes?: KnowledgeGraphNode[];
+    visualization?: {
       nodes: KnowledgeGraphNode[];
       edges: KnowledgeGraphEdge[];
     };
+    // B4 LLM-in-the-loop 遍历结果（graph_traversal_llm 开关开时返回）
+    plan?: {
+      start_node_id: string;
+      edge_types: string[];
+      max_hops: number;
+    };
+    reached?: Record<string, { from: string; via: string | null }>;
+    path_count?: number;
+  };
+}
+
+/** A 类专家知识入库（/knowledge/ingest 的 expert_knowledge 项） */
+export interface IngestExpertItem {
+  fault: string;
+  cause?: string | null;
+  prob?: number | null;
+  solution?: string | null;
+  cost?: string | null;
+  downtime?: string | null;
+  causes?: Record<string, unknown>[] | null;
+}
+
+export interface IngestKnowledgeResponse {
+  success: boolean;
+  doc_id: string;
+  chunk_count: number;
+  expert_nodes_added: number;
+  expert_edges_added: number;
+  llm_extracted: boolean;
+  hitl_triggered: boolean;
+  hitl_request_id?: string | null;
+  message: string;
+}
+
+/** B1/B2/B3 多路检索（/knowledge/search）单条结果 */
+export interface KnowledgeSearchItem {
+  doc_id: string;
+  doc_title: string;
+  content_preview: string;
+  score: number;
+  category?: string;
+}
+
+export interface KnowledgeSearchResponse {
+  query: string;
+  results: KnowledgeSearchItem[];
+  total: number;
+  route_trace?: {
+    decision_reason?: string;
+    quality_reason?: string;
+    num_results?: number;
+    [key: string]: unknown;
   };
 }
 

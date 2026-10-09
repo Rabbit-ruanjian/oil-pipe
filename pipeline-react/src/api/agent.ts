@@ -3,12 +3,15 @@ import type {
   DynamicReportRequestPayload,
   DynamicReportResponsePayload,
   HITLResponse,
+  IngestExpertItem,
+  IngestKnowledgeResponse,
   KnowledgeDeleteResponse,
   KnowledgeDocumentListPayload,
   KnowledgeGraphQueryPayload,
   KnowledgeReindexResponse,
   KnowledgeSearchDebugPayload,
   KnowledgeSearchDebugRequest,
+  KnowledgeSearchResponse,
   KnowledgeStageBaseline,
   KnowledgeStatsPayload,
   KnowledgeUploadPayload,
@@ -108,9 +111,40 @@ export const agentApi = {
     return requestAgent<Record<string, unknown>>(`/trace/${traceId}`);
   },
 
-  async queryGraph(query: string) {
+  async queryGraph(query: string, queryType?: string) {
     const params = new URLSearchParams({ query });
+    if (queryType) {
+      params.set('query_type', queryType);
+    }
     return requestAgent<KnowledgeGraphQueryPayload>(`/graph/query?${params.toString()}`);
+  },
+
+  /** A 类：/knowledge/ingest 专家知识结构化直入（B4/A 类） */
+  async ingestExpertKnowledge(payload: {
+    title: string;
+    category?: string;
+    content?: string;
+    expertKnowledge: IngestExpertItem[];
+  }) {
+    return requestAgent<IngestKnowledgeResponse>('/knowledge/ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: payload.title,
+        category: payload.category || 'cases',
+        content: payload.content,
+        expert_knowledge: payload.expertKnowledge,
+      }),
+    });
+  },
+
+  /** B1/B2/B3：/knowledge/search 多路检索主链路 */
+  async searchKnowledge(payload: { query: string; topK?: number }) {
+    return requestAgent<KnowledgeSearchResponse>('/knowledge/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: payload.query, top_k: payload.topK ?? 3 }),
+    });
   },
 
   async getKnowledgeBaseline() {
