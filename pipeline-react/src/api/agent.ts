@@ -88,11 +88,16 @@ async function requestAgent<T>(path: string, init?: RequestInit): Promise<T> {
 export const agentApi = {
   baseUrl: AGENT_API_BASE,
 
-  async chat(message: string, sessionId: string) {
+  async chat(message: string, sessionId: string, options?: { mode?: string; context?: Record<string, unknown> }) {
     return requestAgent<Record<string, unknown>>('/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, session_id: sessionId }),
+      body: JSON.stringify({
+        message,
+        session_id: sessionId,
+        ...(options?.mode ? { mode: options.mode } : {}),
+        ...(options?.context ? { context: options.context } : {}),
+      }),
     });
   },
 

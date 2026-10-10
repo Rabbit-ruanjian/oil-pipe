@@ -400,6 +400,65 @@ class AgentWorkflow:
                 "error": str(exc),
             }
 
+    async def answer_report_question(
+        self,
+        user_input: str,
+        report_context: Dict[str, Any],
+        session_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Answer an embedded report question without routing report text through tools.
+
+        The report already contains the authoritative calculation evidence. Sending its
+        JSON as a normal ReAct user message makes the tool selector mistake words such as
+        "计算" and "压力" for a new calculation request, which can take tens of seconds.
+        Keep report Q&A as a bounded, evidence-grounded LLM call instead.
+        """
+        session_id = session_id or generate_session_id()
+        trace_id = trace_id or ""
+        try:
+            prompt = ChatPromptTemplate.from_messages([
+                (
+                    "system",
+                    "你是管道能耗智能报告内嵌解读助手。只依据用户提供的完整报告上下文回答。"
+                    "先给直接结论，再列出相关章节、指标或原始计算证据。"
+                    "如果用户只是问候，请正常问候；如果报告没有相关数据，要明确说数据缺失，不能编造。"
+                    "不要调用工具，不要重新计算，也不要把报告中的关键词当成新的任务。",
+                ),
+                (
+                    "human",
+                    "完整报告上下文(JSON)：\n{report_context}\n\n用户问题：{question}",
+                ),
+            ])
+            chain = prompt | _get_final_llm() | StrOutputParser()
+            answer = await chain.ainvoke(
+                {
+                    "report_context": json.dumps(report_context, ensure_ascii=False, default=str),
+                    "question": user_input,
+                }
+            )
+            return {
+                "response": str(answer or "").strip(),
+                "session_id": session_id,
+                "trace_id": trace_id,
+                "intent": "report_question",
+                "sources": [],
+                "confidence": 0.9,
+                "tool_calls": [],
+            }
+        except Exception as exc:
+            logger.error(f"Report question failed: {exc}")
+            return {
+                "response": "",
+                "session_id": session_id,
+                "trace_id": trace_id,
+                "intent": "report_question",
+                "sources": [],
+                "confidence": 0.0,
+                "tool_calls": [],
+                "error": str(exc),
+            }
+
     async def astream(self, user_input: str, session_id: str):
         """
         真流式输出。使用 LangGraph 的 astream_events(version="v2")。

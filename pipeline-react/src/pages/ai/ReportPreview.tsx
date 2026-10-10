@@ -46,6 +46,7 @@ import {
   SENSITIVITY_REPORT_PAGE_COPY,
   type SensitivitySmartReportPayload,
 } from '../../components/reporting/sensitivityReportSchema';
+import SmartReportExperience from '../../components/reporting/SmartReportExperience';
 import { useCalculationLinkStore } from '../../stores/calculationLinkStore';
 import type { CalculationHistory, PageResult, Project, R, SaveReportRequest } from '../../types';
 import type { DynamicReportResponsePayload } from '../../types/agent';
@@ -5850,69 +5851,87 @@ function renderSensitivityAiReportContentV2(
 function renderReportContent(report: DynamicReportResponsePayload) {
   const sensitivitySnapshot = extractSensitivityReportSnapshotFromReport(report);
   if (sensitivitySnapshot) {
-    return renderSensitivityAiReportContentV2(report, sensitivitySnapshot);
+    return (
+      <SmartReportExperience report={report} kind="sensitivity" snapshot={sensitivitySnapshot}>
+        {renderSensitivityAiReportContentV2(report, sensitivitySnapshot)}
+      </SmartReportExperience>
+    );
   }
 
   const optimizationComparisonSnapshot = extractOptimizationComparisonSnapshotFromReport(report);
   if (optimizationComparisonSnapshot) {
-    return renderOptimizationComparisonAiReportContent(report, optimizationComparisonSnapshot);
+    return (
+      <SmartReportExperience report={report} kind="optimization-comparison">
+        {renderOptimizationComparisonAiReportContent(report, optimizationComparisonSnapshot)}
+      </SmartReportExperience>
+    );
   }
 
   const optimizationSnapshot = extractOptimizationSnapshotFromReport(report);
   if (optimizationSnapshot) {
-    return renderOptimizationAiReportContentV2(report, optimizationSnapshot);
+    return (
+      <SmartReportExperience report={report} kind="optimization" snapshot={optimizationSnapshot}>
+        {renderOptimizationAiReportContentV2(report, optimizationSnapshot)}
+      </SmartReportExperience>
+    );
   }
 
   const hydraulicSnapshot = extractHydraulicSnapshotFromReport(report);
   if (hydraulicSnapshot) {
-    return renderHydraulicAiReportContentV2(report, hydraulicSnapshot);
+    return (
+      <SmartReportExperience report={report} kind="hydraulic" snapshot={hydraulicSnapshot}>
+        {renderHydraulicAiReportContentV2(report, hydraulicSnapshot)}
+      </SmartReportExperience>
+    );
   }
 
   return (
-    <Space direction="vertical" size={16} style={{ width: '100%' }}>
-      <Card size="small" title="摘要">
-        {renderSummaryList(report.summary)}
-      </Card>
-
-      <Card size="small" title="亮点">
-        {renderSummaryList(report.highlights)}
-      </Card>
-
-      <Card size="small" title="结论">
-        <Paragraph style={{ marginBottom: 0 }}>{report.conclusion || '暂无结论'}</Paragraph>
-      </Card>
-
-      {report.risks.length ? (
-        <Card size="small" title="风险提示">
-          <Space direction="vertical" size={12} style={{ width: '100%' }}>
-            {report.risks.map((item, index) => (
-              <div key={`${item.target}-${index}`}>
-                <Space wrap>
-                  <Tag color="red">{item.level}</Tag>
-                  <Text strong>{item.target}</Text>
-                  <Text>{item.riskType}</Text>
-                </Space>
-                <Paragraph style={{ margin: '8px 0 0' }}>{item.reason}</Paragraph>
-              </div>
-            ))}
-          </Space>
+    <SmartReportExperience report={report} kind="generic">
+      <Space direction="vertical" size={16} style={{ width: '100%' }}>
+        <Card size="small" title="摘要">
+          {renderSummaryList(report.summary)}
         </Card>
-      ) : null}
 
-      <Card size="small" title="原始结果">
-        <pre
-          style={{
-            margin: 0,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            fontSize: 12,
-            lineHeight: 1.6,
-          }}
-        >
-          {report.raw_text || JSON.stringify(report, null, 2)}
-        </pre>
-      </Card>
-    </Space>
+        <Card size="small" title="亮点">
+          {renderSummaryList(report.highlights)}
+        </Card>
+
+        <Card size="small" title="结论">
+          <Paragraph style={{ marginBottom: 0 }}>{report.conclusion || '暂无结论'}</Paragraph>
+        </Card>
+
+        {report.risks.length ? (
+          <Card size="small" title="风险提示">
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              {report.risks.map((item, index) => (
+                <div key={`${item.target}-${index}`}>
+                  <Space wrap>
+                    <Tag color="red">{item.level}</Tag>
+                    <Text strong>{item.target}</Text>
+                    <Text>{item.riskType}</Text>
+                  </Space>
+                  <Paragraph style={{ margin: '8px 0 0' }}>{item.reason}</Paragraph>
+                </div>
+              ))}
+            </Space>
+          </Card>
+        ) : null}
+
+        <Card size="small" title="原始结果">
+          <pre
+            style={{
+              margin: 0,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              fontSize: 12,
+              lineHeight: 1.6,
+            }}
+          >
+            {report.raw_text || JSON.stringify(report, null, 2)}
+          </pre>
+        </Card>
+      </Space>
+    </SmartReportExperience>
   );
 }
 
@@ -6032,8 +6051,18 @@ function ReportHistoryDetailContent({ row }: { row: HistoryTableRow }) {
       return detailPayload;
     }
 
+    const nestedReport = (detailPayload as { report?: unknown }).report;
+    if (isDynamicReportResponsePayload(nestedReport)) {
+      return nestedReport;
+    }
+
     const nestedPayload = (detailPayload as { data?: unknown }).data;
-    return isDynamicReportResponsePayload(nestedPayload) ? nestedPayload : null;
+    if (isDynamicReportResponsePayload(nestedPayload)) {
+      return nestedPayload;
+    }
+
+    const nestedDataReport = asRecord(nestedPayload)?.report;
+    return isDynamicReportResponsePayload(nestedDataReport) ? nestedDataReport : null;
   }, [detailPayload]);
 
   const historyInputPayload = useMemo(() => parseJson(row.inputParams), [row.inputParams]);
@@ -6486,6 +6515,7 @@ export default function ReportPreview() {
   const [detailPreview, setDetailPreview] = useState<DetailPreviewState>(null);
   const [selectedHistoryKeys, setSelectedHistoryKeys] = useState<number[]>([]);
   const [deletingHistoryIds, setDeletingHistoryIds] = useState<number[]>([]);
+  const [batchDeleting, setBatchDeleting] = useState(false);
   const reportType = DEFAULT_REPORT_TYPE;
   const latestHydraulicLink = useCalculationLinkStore((state) => state.latestByType.HYDRAULIC);
   const latestOptimizationLink = useCalculationLinkStore((state) => state.latestByType.OPTIMIZATION);
@@ -6774,6 +6804,23 @@ export default function ReportPreview() {
     [latestOptimizationLink, selectedCalcType, selectedOptimizationRecord],
   );
 
+  const relatedOptimizationSnapshotForHydraulic = useMemo(() => {
+    if (!selectedHydraulicRecord) {
+      return null;
+    }
+
+    const sameProjectRecord = calculationRecords.find(
+      (record) =>
+        Number(record.projectId) === Number(selectedHydraulicRecord.projectId) &&
+        (record.calcType === 'OPTIMIZATION' || record.calcTypeLabel.includes('优化')),
+    );
+
+    return createOptimizationReportSnapshotFromHistory(sameProjectRecord) ??
+      (latestOptimizationLink && Number(latestOptimizationLink.projectId) === Number(selectedHydraulicRecord.projectId)
+        ? createOptimizationReportSnapshotFromLinkedRecord(latestOptimizationLink)
+        : null);
+  }, [calculationRecords, latestOptimizationLink, selectedHydraulicRecord]);
+
   const selectedOptimizationRecords = useMemo(
     () =>
       selectedGenerationRecords.filter(
@@ -6837,7 +6884,7 @@ export default function ReportPreview() {
 
   useEffect(() => {
     setSelectedHistoryKeys((currentKeys) =>
-      currentKeys.filter((key) => calculationRecords.some((record) => record.key === key)),
+      currentKeys.filter((key) => calculationRecords.some((record) => Number(record.id) === Number(key))),
     );
   }, [calculationRecords]);
 
@@ -6867,6 +6914,39 @@ export default function ReportPreview() {
     }
   }, [loadData]);
 
+  const handleBatchDeleteHistory = useCallback(async () => {
+    const targetIds = selectedHistoryKeys
+      .map((key) => Number(key))
+      .filter((id) => Number.isFinite(id));
+
+    if (!targetIds.length) {
+      message.warning('请先选择要删除的计算记录。');
+      return;
+    }
+
+    setBatchDeleting(true);
+    setDeletingHistoryIds((current) => Array.from(new Set([...current, ...targetIds])));
+
+    try {
+      const response = await calculationHistoryApi.batchDelete(targetIds);
+      const deletedCount = Number(response.data);
+      const deletedIdSet = new Set(targetIds);
+
+      setSelectedHistoryKeys([]);
+      setDetailPreview((current) =>
+        current?.mode === 'history' && deletedIdSet.has(Number(current.row.id)) ? null : current,
+      );
+      await loadData();
+
+      message.success(`批量删除成功，共删除 ${Number.isFinite(deletedCount) ? deletedCount : targetIds.length} 条记录。`);
+    } catch {
+      message.error('批量删除失败，请稍后重试。');
+    } finally {
+      setBatchDeleting(false);
+      setDeletingHistoryIds((current) => current.filter((id) => !targetIds.includes(id)));
+    }
+  }, [loadData, selectedHistoryKeys]);
+
   const detailPayload = useMemo(() => {
     if (!detailPreview || detailPreview.mode !== 'history') {
       return null;
@@ -6886,8 +6966,18 @@ export default function ReportPreview() {
       return detailPayload;
     }
 
+    const nestedReport = (detailPayload as { report?: unknown }).report;
+    if (isDynamicReportResponsePayload(nestedReport)) {
+      return nestedReport;
+    }
+
     const nestedPayload = (detailPayload as { data?: unknown }).data;
-    return isDynamicReportResponsePayload(nestedPayload) ? nestedPayload : null;
+    if (isDynamicReportResponsePayload(nestedPayload)) {
+      return nestedPayload;
+    }
+
+    const nestedDataReport = asRecord(nestedPayload)?.report;
+    return isDynamicReportResponsePayload(nestedDataReport) ? nestedDataReport : null;
   }, [detailPayload, detailPreview]);
 
   const historyInputPayload = useMemo(
@@ -7194,6 +7284,26 @@ export default function ReportPreview() {
   );
 
   const handleGenerate = useCallback(async () => {
+    const sourceSnapshot =
+      preferredSensitivitySnapshot ??
+      preferredOptimizationComparisonSnapshot ??
+      preferredOptimizationSnapshot ??
+      preferredHydraulicSnapshot;
+
+    if (!sourceSnapshot) {
+      message.warning('请先完成一次水力分析或泵站优化，并确认已选择油品参数和泵站参数。');
+      return;
+    }
+
+    const sourceInput =
+      'input' in sourceSnapshot
+        ? sourceSnapshot.input ?? {}
+        : sourceSnapshot.projects?.[0]?.input ?? {};
+    if (!Number.isFinite(Number(sourceInput.oilId)) || !Number.isFinite(Number(sourceInput.pumpStationId))) {
+      message.warning('请先在计算页面选择油品参数和泵站参数，完成计算后再生成智能报告。');
+      return;
+    }
+
     let activeProjectIds = selectedProjectIds.length ? selectedProjectIds : allProjectIds;
 
     if (!activeProjectIds.length) {
@@ -7361,6 +7471,7 @@ export default function ReportPreview() {
                 ...(result.metadata ?? {}),
                 selected_report_count: selectedReportCount,
                 hydraulicSnapshot: preferredHydraulicSnapshot,
+                relatedOptimizationSnapshot: relatedOptimizationSnapshotForHydraulic,
               },
             }
           : {
@@ -7441,6 +7552,7 @@ export default function ReportPreview() {
     preferredOptimizationSnapshot,
     preferredSensitivitySnapshot,
     projects,
+    relatedOptimizationSnapshotForHydraulic,
     selectedGenerationRecords,
     selectedHydraulicRecord,
     selectedOptimizationRecord,
@@ -7643,7 +7755,29 @@ export default function ReportPreview() {
                 style={{ ...cardStyle, height: '100%' }}
                 bodyStyle={tableCardBodyStyle}
                 title="计算记录表"
-                extra={<Text type="secondary">最近 10 条数据库真实记录</Text>}
+                extra={
+                  <Space wrap>
+                    <Text type="secondary">最近 10 条数据库真实记录</Text>
+                    <Popconfirm
+                      title={`确认删除选中的 ${selectedHistoryKeys.length} 条记录？`}
+                      description="删除后不可恢复，请确认这些计算记录不再需要。"
+                      okText="批量删除"
+                      cancelText="取消"
+                      okButtonProps={{ danger: true }}
+                      disabled={!selectedHistoryKeys.length || batchDeleting}
+                      onConfirm={() => void handleBatchDeleteHistory()}
+                    >
+                      <Button
+                        danger
+                        icon={<DeleteOutlined />}
+                        disabled={!selectedHistoryKeys.length}
+                        loading={batchDeleting}
+                      >
+                        批量删除{selectedHistoryKeys.length ? ` (${selectedHistoryKeys.length})` : ''}
+                      </Button>
+                    </Popconfirm>
+                  </Space>
+                }
               >
                 {loading ? (
                   <div style={{ textAlign: 'center', padding: '48px 0' }}>
@@ -7654,10 +7788,15 @@ export default function ReportPreview() {
                     className="report-history-table"
                     columns={historyColumns}
                     dataSource={latestRecords}
-                    rowKey="key"
+                    rowKey={(record) => Number(record.id)}
                     rowSelection={{
                       selectedRowKeys: selectedHistoryKeys,
-                      onChange: (keys) => setSelectedHistoryKeys(keys as number[]),
+                      onChange: (keys) =>
+                        setSelectedHistoryKeys(
+                          keys
+                            .map((key) => Number(key))
+                            .filter((key) => Number.isFinite(key)),
+                        ),
                       columnTitle: (checkboxNode) => (
                         <Space size={6} style={{ width: '100%', whiteSpace: 'nowrap', justifyContent: 'flex-start' }}>
                           {checkboxNode}

@@ -69,6 +69,7 @@ const menuItems: MenuProps['items'] = [
         icon: <DeploymentUnitOutlined />,
         label: <span className={styles.menuLabelWithBadge}>智能对话 <span className={styles.liveBadge}>LIVE</span></span>,
       },
+      { key: '/ai/trace', icon: <BookOutlined />, label: '知识库录入' },
       { key: '/ai/report', icon: <BookOutlined />, label: '智能报告' },
     ],
   },
