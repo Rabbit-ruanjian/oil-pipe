@@ -43,6 +43,21 @@ class MilvusVectorStore:
         self._collection = None
         self._connected = False
         self._active_host = self.host
+        self._schema_dim = None  # 实际 schema 维度（连接后从 collection 读取）
+
+    def _effective_dim(self) -> int:
+        """实际向量维度：优先用已连接 collection 的 schema，回退配置值。"""
+        if self._schema_dim:
+            return self._schema_dim
+        if self._collection is not None:
+            try:
+                for f in self._collection.schema.fields:
+                    if f.name == "embedding":
+                        self._schema_dim = int(f.params.get("dim", self.dimension))
+                        return self._schema_dim
+            except Exception:  # noqa: BLE001
+                pass
+        return self.dimension
 
     def _connection_hosts(self) -> List[str]:
         host = str(self.host or "").strip()
@@ -80,6 +95,7 @@ class MilvusVectorStore:
                     if utility.has_collection(self.collection_name):
                         self._collection = Collection(self.collection_name)
                         self._collection.load()
+                        self._schema_dim = self._effective_dim()
                         logger.info(f"Loaded Milvus collection: {self.collection_name}")
                     else:
                         self._collection = None
@@ -106,10 +122,18 @@ class MilvusVectorStore:
             raise last_error
         raise RuntimeError("Milvus connection failed with unknown error")
 
-    def create_collection(self, recreate: bool = False) -> None:
-        """Create the Milvus collection if needed."""
+    def create_collection(self, recreate: bool = False, dimension: int | None = None) -> None:
+        """Create the Milvus collection if needed.
+
+        Args:
+            recreate: 是否 drop 后重建
+            dimension: 显式指定向量维度（默认取 self.dimension）。重建时应传当前
+                embedding 模型实际维度，避免沿用配置默认值导致维度不符。
+        """
         from pymilvus import Collection, CollectionSchema, DataType, FieldSchema, utility
 
+        if dimension:
+            self.dimension = dimension
         self.connect()
 
         if utility.has_collection(self.collection_name):
@@ -118,6 +142,8 @@ class MilvusVectorStore:
                 logger.info(f"Dropped Milvus collection: {self.collection_name}")
             else:
                 self._collection = Collection(self.collection_name)
+                self._collection.load()
+                self._schema_dim = self._effective_dim()
                 return
 
         fields = [
@@ -138,6 +164,7 @@ class MilvusVectorStore:
             FieldSchema(
                 name="embedding",
                 dtype=DataType.FLOAT_VECTOR,
+                # 重建时跟随当前 embedding 维度（self.dimension），避免沿用旧 schema 维度
                 dim=self.dimension,
             ),
         ]

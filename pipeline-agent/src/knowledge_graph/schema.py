@@ -31,6 +31,10 @@ class EdgeType(str, Enum):
     AFFECTS = "affects"
     DETERMINES = "determines"
     SPECIFIES = "specifies"
+    # 跨故障共享关系：同一故障集共享根因/共享处置/强相关（G-E7 报告核心价值）
+    SHARED_CAUSE = "shared_cause"
+    SHARED_SOLUTION = "shared_solution"
+    RELATED_FAULT = "related_fault"
 
 
 @dataclass

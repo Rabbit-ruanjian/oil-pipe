@@ -59,7 +59,8 @@ class GraphAgent:
 
         graph = self._get_graph()
         if graph is None:
-            return "知识图谱服务不可用，请稍后重试。"
+            # dict 返回，避免 GraphQueryResponse.result: dict 校验 500
+            return {"message": "知识图谱服务不可用，请稍后重试。"}
 
         try:
             # P0-③ B4：graph_traversal_llm 开关开 → LLM 决策遍历；关 → 现有固定路径
@@ -82,7 +83,11 @@ class GraphAgent:
                             result = graph.get_subgraph_for_visualization(node_ids[0], depth=2)
 
             if not result:
-                return f"未找到与 '{query}' 相关的知识图谱信息。"
+                # 统一返回 dict（GraphQueryResponse.result: dict）；此前返回 str
+                # 导致 Pydantic 校验 500。
+                return {"message": f"未找到与 '{query}' 相关的知识图谱信息。"}
+
+            result = self._attach_semantic_hits(result, query)
 
             if summarize:
                 return self._summarize_result(
@@ -94,7 +99,8 @@ class GraphAgent:
             return self._format_raw_result(result=result, query_type=query_type)
         except Exception as exc:  # noqa: BLE001
             logger.error("GraphAgent execute failed: {}", exc)
-            return f"知识图谱查询失败: {exc}"
+            # dict 返回，避免 GraphQueryResponse.result: dict 校验 500
+            return {"message": f"知识图谱查询失败: {exc}"}
 
     def _maybe_graph_traversal(
         self, query: str, query_type: Optional[str]
@@ -140,6 +146,42 @@ class GraphAgent:
         return planner.traverse(graph, query=query, plan=plan)
 
     @staticmethod
+    def _attach_semantic_hits(result: dict, query: str) -> dict:
+        """给图查询结果挂"语义命中"（边向量 + 社区向量，对标 ragflow relation 检索）。
+
+        命中信息展示在本轮 query 与因果边的语义相似度上，前端图谱页据此
+        高亮/标注；门控关 / 无向量 / embedding 失败 → 空列表，不阻断。
+        """
+        if not isinstance(result, dict):
+            return result
+        edge_hits: list = []
+        community_hits: list = []
+        try:
+            from src.rag.edge_vector_store import edge_search
+            from src.knowledge_graph.community import community_search
+
+            edge_hits = [
+                {
+                    "description": hit.get("description", ""),
+                    "edge_type": hit.get("edge_type", ""),
+                    "score": hit.get("score", 0.0),
+                }
+                for hit in edge_search(query, top_k=3)
+            ]
+            community_hits = [
+                {
+                    "community_id": hit.get("community_id", ""),
+                    "summary": str(hit.get("summary", ""))[:120],
+                    "score": hit.get("score", 0.0),
+                }
+                for hit in community_search(query, top_k=2)
+            ]
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("attach semantic hits failed (no-op): {}", exc)
+        result["edge_hits"] = edge_hits
+        result["community_hits"] = community_hits
+        return result
+
     def _format_raw_result(*, result: Any, query_type: Optional[str]) -> Any:
         if query_type is None:
             if isinstance(result, dict):

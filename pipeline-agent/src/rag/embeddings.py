@@ -6,9 +6,37 @@
 from typing import List, Optional, Tuple
 import numpy as np
 from langchain_openai import OpenAIEmbeddings
+from langchain_core.embeddings import Embeddings
 
 from src.config import settings
 from src.utils import logger
+
+
+class _LocalSentenceEmbeddings(Embeddings):
+    """本地 sentence-transformers Embedding（无网络、无 API key，CPU 可跑）。"""
+
+    def __init__(self, model_name: str):
+        from sentence_transformers import SentenceTransformer
+
+        self._model = SentenceTransformer(model_name, device="cpu")
+        logger.info(
+            "Local embedding model loaded: {} (dim={})",
+            model_name, self._model.get_sentence_embedding_dimension(),
+        )
+
+    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        vectors = self._model.encode(
+            [t or "" for t in texts], batch_size=32, show_progress_bar=False, normalize_embeddings=True
+        )
+        return [list(v) for v in vectors]
+
+    def embed_query(self, text: str) -> List[float]:
+        return list(self._model.encode(text or "", normalize_embeddings=True))
+
+
+def _new_local_dense():
+    """创建本地 Dense Embedding（懒加载；模型缺失时抛错由调用方降级）。"""
+    return _LocalSentenceEmbeddings(settings.EMBEDDING_LOCAL_MODEL)
 
 
 class HybridEmbeddings:
@@ -16,7 +44,7 @@ class HybridEmbeddings:
     混合Embedding
 
     支持：
-    1. Dense Embedding - 使用OpenAI/通义千问API
+    1. Dense Embedding - 远端API（OpenAI/通义千问）或本地sentence-transformers小模型
     2. Sparse Embedding - 使用BM25
     """
 
@@ -34,12 +62,19 @@ class HybridEmbeddings:
             dimension: 向量维度
             use_sparse: 是否启用稀疏向量（BM25）
         """
-        self.model = model or settings.EMBEDDING_MODEL
-        self.dimension = dimension or settings.EMBEDDING_DIMENSION
+        self.backend = settings.EMBEDDING_BACKEND  # "api" | "local"
+        if self.backend == "local":
+            # 本地小模型：模型名跟随本地模型；维度由本地模型实际维度决定（默认
+            # 多语言 MiniLM = 384），不受 api 用的 EMBEDDING_DIMENSION(1024) 影响
+            self.model = model or settings.EMBEDDING_LOCAL_MODEL
+            self.dimension = dimension or 384
+        else:
+            self.model = model or settings.EMBEDDING_MODEL
+            self.dimension = dimension or settings.EMBEDDING_DIMENSION
         self.use_sparse = use_sparse
         self.max_batch_size = 10
 
-        # Dense Embeddings
+        # Dense Embeddings（懒加载；local 走 SBertEmbeddings，api 走 OpenAIEmbeddings）
         self._dense_embeddings = None
 
         # Sparse Embeddings (BM25)
@@ -48,16 +83,19 @@ class HybridEmbeddings:
         self._tokenized_corpus = []
 
     @property
-    def dense_embeddings(self) -> OpenAIEmbeddings:
-        """获取Dense Embedding模型（懒加载）"""
+    def dense_embeddings(self):
+        """获取Dense Embedding模型（懒加载；按 backend 选择 api / local）"""
         if self._dense_embeddings is None:
-            self._dense_embeddings = OpenAIEmbeddings(
-                api_key=settings.EMBEDDING_API_KEY,
-                base_url=settings.EMBEDDING_API_BASE,
-                model=self.model,
-                check_embedding_ctx_length=False,
-                chunk_size=self.max_batch_size,
-            )
+            if self.backend == "local":
+                self._dense_embeddings = _new_local_dense()
+            else:
+                self._dense_embeddings = OpenAIEmbeddings(
+                    api_key=settings.EMBEDDING_API_KEY,
+                    base_url=settings.EMBEDDING_API_BASE,
+                    model=self.model,
+                    check_embedding_ctx_length=False,
+                    chunk_size=self.max_batch_size,
+                )
         return self._dense_embeddings
 
     def embed_documents(self, texts: List[str]) -> List[List[float]]:

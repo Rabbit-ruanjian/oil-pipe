@@ -5,7 +5,7 @@ RAG Pipeline
 
 import json
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 
 from src.config import settings, rag_config
@@ -123,6 +123,66 @@ class RAGPipeline:
             logger.warning(f"注册 question_refiner hook 失败（降级跳过）: {exc}")
         self._last_sparse_revision: Optional[str] = None
 
+    def _ensure_collection_dim(self, recreate: bool) -> bool:
+        """现有 Milvus collection 维度与当前 embedding 维度不符时，自动重建。
+
+        例：api 后端（1024 维）切到 local 后端（384 维）后，旧 schema 维度的
+        collection 会拒绝新向量，必须 drop 重建。recreate 已为 True 时直接返回。
+        """
+
+        if recreate:
+            return True
+        try:
+            # 确保已连接并读到实际 schema 维度
+            self.vector_store.connect()
+            schema_dim = self.vector_store._schema_dim or self.vector_store._effective_dim()
+            if not schema_dim or schema_dim == self.embeddings.dimension:
+                return False
+            logger.warning(
+                "Milvus schema 维度({})与当前 embedding 维度({})不符，自动重建 collection",
+                schema_dim, self.embeddings.dimension,
+            )
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"检查 Milvus schema 维度失败（沿用 recreate={recreate}）: {exc}")
+            return recreate
+
+    def _build_community_index(self) -> None:
+        """GraphRAG 2.0：切图社区 + 规则摘要 + 本地向量入库。
+
+        受 RAG_GRAPH_COMMUNITY 门控（默认开）；任何异常降级跳过，
+        不阻断主索引链路（P0-③ "失败不阻断" 同款原则）。
+        """
+        try:
+            if not rag_config.pluggable.get("graph_community", True):
+                logger.info("RAG_GRAPH_COMMUNITY 关闭，跳过社区层构建")
+                return
+            from src.knowledge_graph import get_knowledge_graph_builder
+            from src.knowledge_graph.community import build_communities, upsert_community_vectors
+            from src.knowledge_graph.graph_rank import build_graph_rank
+            from src.rag.edge_vector_store import (
+                build_edge_descriptions,
+                upsert_edge_vectors,
+            )
+
+            builder = get_knowledge_graph_builder()
+
+            # 边向量（GraphRAG 2.1）门控：关时跳过，不影响社区层
+            if rag_config.pluggable.get("graph_edge_vectors", True):
+                try:
+                    build_graph_rank(builder.graph)
+                    upsert_edge_vectors(build_edge_descriptions(builder.graph))
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning(f"边描述向量层构建失败（降级跳过）: {exc}")
+
+            communities = build_communities(builder)
+            if not communities:
+                logger.info("社区层：图谱无节点，跳过")
+                return
+            upsert_community_vectors(communities)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"社区层构建失败（降级跳过）: {exc}")
+
     def index_documents_report(
         self,
         knowledge_base_path: str = "knowledge_base",
@@ -155,8 +215,11 @@ class RAGPipeline:
                 chunk_count=0,
             )
 
-        # 2. 创建/重建Collection
-        self.vector_store.create_collection(recreate=recreate)
+        # 2. 创建/重建Collection（若现有 schema 维度与当前 embedding 维度不符则自动重建）
+        recreate = self._ensure_collection_dim(recreate)
+        # 重建/新建时按当前 embedding 模型实际维度建 schema（如 local 384 维），
+        # 避免沿用配置默认维度（api 1024 维）导致向量维度不符
+        self.vector_store.create_collection(recreate=recreate, dimension=self.embeddings.dimension)
 
         # 3. 分块和向量化
         all_chunks = []
@@ -216,6 +279,10 @@ class RAGPipeline:
             self.retriever.clear_sparse_index()
 
         logger.info(f"索引完成，共 {len(documents)} 个文档，{len(all_chunks)} 个分块")
+
+        # GraphRAG 2.0 社区层：切社区 + 摘要 + 本地向量（失败不阻断，降级跳过）
+        self._build_community_index()
+
         return IndexingReport(
             documents_loaded=len(documents),
             documents_indexed=len(indexed_doc_ids),
@@ -304,7 +371,8 @@ class RAGPipeline:
         query: str,
         top_k: int = None,
         category_filter: Optional[str] = None,
-        skip_self_rag: bool = False
+        skip_self_rag: bool = False,
+        feedback: bool = False,
     ) -> RAGResponse:
         """
         执行RAG检索
@@ -471,6 +539,14 @@ class RAGPipeline:
             database_results,
         )
 
+        # P0-③ ENRICH 反馈增强 hook：检索后、返回前，按历史相关性反馈做 Rocchio 重排。
+        # 受 RAG_USE_RELEVANCE_FEEDBACK + feedback 双门控；开关关或无该 query 反馈记录
+        # 时返回原 sources（no-op，逐字节一致）。hook 内部异常自动降级，不阻断主链路。
+        fb_applied = False
+        fb_meta: Dict[str, Any] = {}
+        if feedback and rag_config.pluggable.get("relevance_feedback"):
+            sources, fb_applied, fb_meta = self._apply_relevance_feedback(query, sources)
+
         return RAGResponse(
             context=context,
             sources=sources,
@@ -486,8 +562,73 @@ class RAGPipeline:
                 "database_results": len(database_results),
                 "planned_routes": route_plan,
                 "agentic_trace": [self._serialize_route_trace(item) for item in route_trace],
+                "relevance_feedback": {
+                    "applied": fb_applied,
+                    "feedback_meta": fb_meta,
+                },
             }
         )
+
+    def _apply_relevance_feedback(
+        self, query: str, sources: List[Dict[str, Any]]
+    ) -> Tuple[List[Dict[str, Any]], bool, Dict[str, Any]]:
+        """ENRICH：用历史相关性反馈对首轮 sources 做 TF-IDF Rocchio 重排。
+
+        返回 (重排后 sources, 是否生效, 元信息)。
+        - 无该 query 的反馈记录 / 反馈文本取不到 → 原样返回（no-op）。
+        - 任何异常 → 降级原样返回，不阻断。
+        """
+        try:
+            from src.rag.relevance_feedback import load_feedback, rocchio_rerank
+
+            fb = load_feedback(query)
+            pos_ids = [d for d in fb.get("relevant", []) if d]
+            neg_ids = [d for d in fb.get("irrelevant", []) if d]
+            if not pos_ids:
+                return sources, False, {"relevant": 0, "irrelevant": len(neg_ids), "reason": "无正反馈记录"}
+
+            # 反馈文本：相关/不相关 doc 对应的 chunk 正文（从 retriever 语料取）
+            corpus = getattr(self.retriever, "_index_to_chunk", {}) or {}
+            pos_texts, neg_texts = self._feedback_texts(corpus, pos_ids, neg_ids)
+            if not pos_texts:
+                return sources, False, {"relevant": len(pos_ids), "irrelevant": len(neg_ids), "reason": "反馈文档正文缺失"}
+
+            # 给候选注入完整正文（content_preview 截断区分度低；full_text 才有区分度）
+            full_by_doc = self._doc_full_text(corpus)
+            for src in sources:
+                doc_id = str(src.get("doc_id") or "")
+                if doc_id in full_by_doc:
+                    src["full_text"] = full_by_doc[doc_id]
+
+            reranked = rocchio_rerank(query, sources, pos_texts, neg_texts, beta=0.5)
+            return reranked, True, {
+                "relevant": len(pos_ids),
+                "irrelevant": len(neg_ids),
+                "reason": "Rocchio TF-IDF 重排",
+            }
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Relevance feedback re-rank degraded: {}", exc)
+            return sources, False, {"relevant": 0, "irrelevant": 0, "reason": f"degraded: {exc}"}
+
+    @staticmethod
+    def _feedback_texts(
+        corpus: Dict[int, Dict], pos_ids: List[str], neg_ids: List[str]
+    ) -> Tuple[List[str], List[str]]:
+        """按 doc_id 从 BM25 语料取正/负反馈文档的正文（每个 doc 取首条 chunk）。"""
+        by_doc = RAGPipeline._doc_full_text(corpus)
+        pos = [by_doc[d] for d in pos_ids if by_doc.get(d)]
+        neg = [by_doc[d] for d in neg_ids if by_doc.get(d)]
+        return pos, neg
+
+    @staticmethod
+    def _doc_full_text(corpus: Dict[int, Dict]) -> Dict[str, str]:
+        """doc_id → 该 doc 首条 chunk 的完整正文（缺则退回 content）。"""
+        by_doc: Dict[str, str] = {}
+        for _idx, chunk in (corpus or {}).items():
+            doc_id = str(chunk.get("doc_id") or "")
+            if doc_id and doc_id not in by_doc:
+                by_doc[doc_id] = str(chunk.get("full_text") or chunk.get("content") or "")
+        return by_doc
 
 
     @staticmethod

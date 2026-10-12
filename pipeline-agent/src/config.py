@@ -70,6 +70,14 @@ class Settings(BaseSettings):
     EMBEDDING_API_BASE: str = Field(default="https://dashscope.aliyuncs.com/compatible-mode/v1")
     EMBEDDING_MODEL: str = Field(default="text-embedding-v3")
     EMBEDDING_DIMENSION: int = Field(default=1024)
+    EMBEDDING_BACKEND: Literal["api", "local"] = Field(
+        default="api",
+        description="Dense 向量后端：api=远端 Embedding API；local=本地 sentence-transformers 小模型（无 key 可跑）",
+    )
+    EMBEDDING_LOCAL_MODEL: str = Field(
+        default="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+        description="本地 embedding 模型（384 维，多语言/中文友好，CPU 可跑）",
+    )
 
     # ===== 数据库配置 =====
     DB_HOST: str = Field(default="localhost")
@@ -204,6 +212,22 @@ class Settings(BaseSettings):
     RAG_AUTO_ROUTE: bool = Field(
         default=False,
         description="对话入口 hook：LLM 自动判定走 B4 图查询 / B1B2B3 检索（auto_route），关闭时走默认检索路径",
+    )
+    RAG_USE_RELEVANCE_FEEDBACK: bool = Field(
+        default=False,
+        description="检索后 hook：ENRICH 相关性反馈（Rocchio）。基于历史用户反馈（相关/不相关）"
+        "对首轮检索结果做反馈增强重排；无反馈记录时 no-op，关闭时行为与现状逐字节一致",
+    )
+    RAG_GRAPH_COMMUNITY: bool = Field(
+        default=True,
+        description="检索 hook：GraphRAG 2.0 社区层。子图社区→规则摘要→本地向量粗筛；"
+        "关闭时图检索退回离散步搜+BM25 回查（与现状一致），开关只影响摘要语义腿",
+    )
+    RAG_GRAPH_EDGE_VECTORS: bool = Field(
+        default=True,
+        description="检索 hook：GraphRAG 2.1 边描述向量层（对标 ragflow relation 向量检索）。"
+        "图边→因果链自然语言描述→本地向量，query 向量直接命中边；"
+        "关闭 / 无边向量 / embedding 失败时 no-op，不阻断图检索主链路",
     )
     RAG_HITL_CONFIDENCE_THRESHOLD: float = Field(
         default=0.5,
@@ -413,6 +437,9 @@ class RAGConfig:
             "distill_expert_graph": self.settings.RAG_DISTILL_EXPERT_GRAPH,
             "graph_traversal_llm": self.settings.RAG_GRAPH_TRAVERSAL_LLM,
             "auto_route": self.settings.RAG_AUTO_ROUTE,
+            "relevance_feedback": self.settings.RAG_USE_RELEVANCE_FEEDBACK,
+            "graph_community": self.settings.RAG_GRAPH_COMMUNITY,
+            "graph_edge_vectors": self.settings.RAG_GRAPH_EDGE_VECTORS,
             "hitl_confidence_threshold": self.settings.RAG_HITL_CONFIDENCE_THRESHOLD,
         }
 

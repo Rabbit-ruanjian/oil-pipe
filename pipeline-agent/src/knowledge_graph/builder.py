@@ -13,6 +13,30 @@ from src.utils import logger
 
 from .schema import EdgeType, GraphEdge, GraphNode, NodeType
 
+# 中文标点（去空格后做子串兜底时一并剥离）
+_CJK_PUNCT = "，。、；：？！《》「」“”‘’…—·~～!?"
+
+
+def _norm_for_match(text: str) -> str:
+    """去标点/空格 + lower，用于节点名与查询串的"宽松子串"匹配。"""
+    import re
+
+    cleaned = re.sub(r"[\s\d]+", "", text or "")
+    for ch in _CJK_PUNCT:
+        cleaned = cleaned.replace(ch, "")
+    return cleaned.lower()
+
+
+def _shared_bigrams(a: str, b: str) -> List[str]:
+    """a/b 的字符 bigram 交集（去标点空格后的串）。
+
+    对中文"泵站出口压力下降" vs 节点名"泵站出口压力持续下降"：
+    前者 bigram ⊂ 后者 bigram（除"下降"前后无变化），交集非空 → 命中。
+    """
+    grams_a = {a[i : i + 2] for i in range(len(a) - 1)} if len(a) >= 2 else set()
+    grams_b = {b[i : i + 2] for i in range(len(b) - 1)} if len(b) >= 2 else set()
+    return list(grams_a & grams_b)
+
 
 class KnowledgeGraphBuilder:
     """Build and query pipeline-domain knowledge graph."""
@@ -96,15 +120,24 @@ class KnowledgeGraphBuilder:
         )
 
     def match_nodes_by_text(self, text: str) -> List[str]:
-        """Fuzzy match node names by text tokens."""
+        """Fuzzy match node names by text tokens.
+
+        三层召回（强→弱），去掉了原"双向子串"对中文的死板/误召：
+          1) 分词 token（按 ,， 及空白）命中 description/heading/aliases
+          2) 去标点空格后的宽松子串：query_norm ⊆ name_norm（如"泵站出口压力下降"命中"泵站出口压力持续下降"）
+          3) bigram 交集（≥2 个共享 bigram）：处理 query 比节点名多/少几字的情况
+        三层都未命中 → 不召该节点（避免"任一短 token 就匹配"的噪声）。
+        """
 
         self.ensure_ready()
         if not text:
             return []
 
-        tokens = [token for token in text.replace("，", " ").replace(",", " ").split() if token]
+        tokens = [t for t in text.replace("，", " ").replace(",", " ").split() if t]
         lowered = text.lower()
-        matched = []
+        query_norm = _norm_for_match(text)
+        matched: List[str] = []
+        seen: Set[str] = set()
 
         for node_id, attrs in self.graph.nodes(data=True):
             name = str(attrs.get("name", ""))
@@ -112,19 +145,35 @@ class KnowledgeGraphBuilder:
             aliases = attrs.get("aliases", [])
             heading_path = str(attrs.get("heading_path", attrs.get("properties", {}).get("heading_path", "")))
             name_lower = name.lower()
+            name_norm = _norm_for_match(name)
             haystacks = [name_lower, description.lower(), heading_path.lower()]
             haystacks.extend(str(alias).lower() for alias in aliases if alias)
-            if any(lowered in haystack or haystack in lowered for haystack in haystacks if haystack):
-                matched.append(node_id)
-                continue
 
+            hit = False
+
+            # 层1：分词 token 命中（保留原行为）
             if tokens and any(
                 token.lower() in haystack
                 for token in tokens
                 for haystack in haystacks
                 if haystack
             ):
+                hit = True
+
+            # 层2：宽松子串（query 去标点后是节点名的子串）
+            if not hit and query_norm and name_norm and query_norm in name_norm:
+                hit = True
+
+            # 层3：bigram 交集兜底（共享 ≥2 个 bigram，且交集占 query bigram 的比例 ≥ 1/3）
+            if not hit and query_norm and name_norm and len(query_norm) >= 2:
+                shared = _shared_bigrams(query_norm, name_norm)
+                q_grams = {query_norm[i : i + 2] for i in range(len(query_norm) - 1)}
+                if shared and len(shared) / max(len(q_grams), 1) >= 1 / 3:
+                    hit = True
+
+            if hit and node_id not in seen:
                 matched.append(node_id)
+                seen.add(node_id)
 
         return matched
 
@@ -138,10 +187,47 @@ class KnowledgeGraphBuilder:
             if self.graph.nodes[node_id].get("type") == NodeType.FAULT.value
         ]
 
+        # 跨故障共享关系（G-E7 报告核心价值）：同一 fault 节点上挂的
+        # shared_cause/shared_solution/related_fault 边，附在每条结果上，
+        # 使"哪些故障共享这个根因/这个处置"可被直接回答。
+        shared_edge_types = {
+            EdgeType.SHARED_CAUSE.value,
+            EdgeType.SHARED_SOLUTION.value,
+            EdgeType.RELATED_FAULT.value,
+        }
+
+        def _shared_relations_for(fault_id: str) -> List[dict]:
+            rels: List[dict] = []
+            seen: set[str] = set()
+            for nbr in list(self.graph.successors(fault_id)) + list(self.graph.predecessors(fault_id)):
+                if nbr == fault_id or nbr in seen:
+                    continue
+                data = self.graph.get_edge_data(fault_id, nbr, default=None)
+                if data is None:
+                    data = self.graph.get_edge_data(nbr, fault_id, default={})
+                etype = str(data.get("type", ""))
+                if etype not in shared_edge_types:
+                    continue
+                seen.add(nbr)
+                props = data.get("properties") if isinstance(data, dict) else {}
+                props = props or {}
+                rels.append(
+                    {
+                        "relation": etype,
+                        "peer_id": nbr,
+                        "peer": self.graph.nodes[nbr].get("name", nbr),
+                        "shared_cause": props.get("shared_cause"),
+                        "shared_solution": props.get("shared_solution"),
+                        "note": props.get("note"),
+                    }
+                )
+            return rels
+
         results: List[dict] = []
         for fault_id in matched_faults:
             fault_node = self.graph.nodes[fault_id]
             fault_display = fault_node.get("name", fault_id)
+            shared = _shared_relations_for(fault_id)
 
             for cause_id in self.graph.successors(fault_id):
                 edge = self.graph.get_edge_data(fault_id, cause_id, default={})
@@ -176,6 +262,7 @@ class KnowledgeGraphBuilder:
                         "probability": float(edge.get("weight", 0)),
                         "evidence": edge.get("evidence_parameters", []),
                         "solutions": solutions,
+                        "shared_relations": shared,
                     }
                 )
 
@@ -250,11 +337,20 @@ class KnowledgeGraphBuilder:
         return standards
 
     def get_subgraph_for_visualization(self, center_node: str, depth: int = 2) -> dict:
-        """Return nodes/edges payload for graph visualization."""
+        """Return nodes/edges payload for graph visualization.
+
+        节点/边带重要性（对标 ragflow）：
+        - 节点附加 pagerank（PageRank 重要性，0~1；无预存降级基线 0.1）
+        - 边附加 pagerank（取两端点较小者，短板决定边的重要性）
+        前端据此渲染节点大小/边粗细/社区簇，检索时该结构信息同时
+        编码在边向量描述里（graph_rank 离线预存，非检索时现算）。
+        """
 
         self.ensure_ready()
         if center_node not in self.graph:
             return {"nodes": [], "edges": []}
+
+        from src.knowledge_graph.graph_rank import entity_importance
 
         nodes: Dict[str, dict] = {}
         edges: List[dict] = []
@@ -271,8 +367,10 @@ class KnowledgeGraphBuilder:
                         next_frontier.add(neighbor)
             frontier = next_frontier
 
+        importance = {node_id: entity_importance(node_id) for node_id in visited}
+
         for node_id in visited:
-            nodes[node_id] = self._node_view(node_id)
+            nodes[node_id] = {**self._node_view(node_id), "pagerank": round(importance[node_id], 3)}
 
         for source_id in visited:
             for target_id in self.graph.successors(source_id):
@@ -285,6 +383,7 @@ class KnowledgeGraphBuilder:
                         "target": target_id,
                         "type": edge.get("type", ""),
                         "weight": edge.get("weight", 1.0),
+                        "pagerank": round(min(importance[source_id], importance[target_id]), 3),
                     }
                 )
 

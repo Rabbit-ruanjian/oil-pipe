@@ -11,6 +11,8 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from src.config import settings
 from src.knowledge_graph import KnowledgeGraphBuilder
+from src.knowledge_graph.community import community_search
+from src.rag.edge_vector_store import edge_search
 from src.utils import logger
 
 
@@ -71,7 +73,44 @@ class GraphRAGRetriever:
                     }
                 )
 
-        return contexts[:top_k]
+        # GraphRAG 2.0 摘要语义腿：社区摘要向量粗筛命中 → 拼进 content
+        # （开关关 / 无社区 → no-op，行为与现状一致）
+        community_hits = community_search(query, top_k=min(top_k, 3))
+        for hit in community_hits:
+            contexts.append(
+                {
+                    "type": "graph_community",
+                    "content": f"社区摘要（相似度 {hit['score']}）：{hit['summary']}",
+                    "entities": [hit.get("community_id")],
+                    "relations": [],
+                    "confidence": min(0.99, hit.get("score", 0.5)),
+                    "community": hit,
+                }
+            )
+
+        # GraphRAG 2.1 边描述语义腿（对标 ragflow relation 向量检索）：
+        # query 向量直接命中"边描述向量"（因果链整句），比实体词面回查更贴语义
+        # （开关关 / 无边向量 / embedding 失败 → no-op，不阻断）
+        edge_hits = edge_search(query, top_k=min(top_k, 3))
+        for hit in edge_hits:
+            contexts.append(
+                {
+                    "type": "graph_edge",
+                    "content": f"因果边（相似度 {hit['score']}）：{hit['description']}",
+                    "entities": [hit.get("source"), hit.get("target")],
+                    "relations": [
+                        {
+                            "source": hit.get("source"),
+                            "target": hit.get("target"),
+                            "type": hit.get("edge_type"),
+                        }
+                    ],
+                    "confidence": min(0.99, hit.get("score", 0.4)),
+                    "edge": hit,
+                }
+            )
+
+        return contexts[: max(top_k, 3)]
 
     def _extract_entities(self, query: str) -> List[str]:
         """Extract domain entities from query with LLM + fallback."""

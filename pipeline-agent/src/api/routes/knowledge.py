@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any, Optional
+from typing import Annotated, Any, Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -44,6 +44,11 @@ class SearchRequest(BaseModel):
     query: str
     top_k: int = 5
     category: Optional[str] = None
+    feedback: bool = Field(
+        default=False,
+        description="ENRICH：启用相关性反馈增强（Rocchio 重排）。需 RAG_USE_RELEVANCE_FEEDBACK 开关同开，"
+        "且该 query 有历史反馈记录时生效，否则 no-op",
+    )
 
 
 class SearchItem(BaseModel):
@@ -209,11 +214,16 @@ class IngestExpertItem(BaseModel):
 
 
 class IngestOptions(BaseModel):
-    """/knowledge/ingest 的可插拔选项（默认全关，关闭时行为与现状一致）。"""
+    """/knowledge/ingest 的可插拔选项。
+
+    - llm_extract / build_hype 默认关（P0-③ 可插拔，关时行为与改造前逐字节一致）。
+    - distill_to_expert_graph 默认 **True**：expert_knowledge 直入即建图入库
+      （前端图谱区据此展示因果网）；显式传 False 可关闭蒸馏。
+    """
 
     llm_extract: bool = Field(default=False, description="A2 入库 LLM 知识抽取开关")
     build_hype: bool = Field(default=False, description="A4 保留 HyPE 生成（B1 多路查询种子）")
-    distill_to_expert_graph: bool = Field(default=False, description="A3 文档图→专家图蒸馏开关")
+    distill_to_expert_graph: bool = Field(default=True, description="A3 专家关系蒸馏进文档图（默认开，保证图谱展示有数据）")
 
 
 class IngestRequest(BaseModel):
@@ -335,6 +345,7 @@ def _search_knowledge_sync(request: SearchRequest) -> SearchResponse:
         top_k=request.top_k,
         category_filter=request.category,
         skip_self_rag=False,
+        feedback=bool(request.feedback),
     )
     results = [
         SearchItem(
@@ -659,3 +670,95 @@ async def auto_route_knowledge(request: AutoRouteRequest):
     except Exception as exc:  # noqa: BLE001
         logger.error(f"Knowledge auto-route failed: {exc}")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# ENRICH：相关性反馈（Relevance Feedback / Rocchio）闭环
+# 开关 RAG_USE_RELEVANCE_FEEDBACK 默认关；反馈记录持久化在
+# knowledge_base/.feedback/relevance_feedback.json。
+# ---------------------------------------------------------------------------
+
+
+class FeedbackRequest(BaseModel):
+    """POST /knowledge/feedback 请求：用户对某 query 下文档的相关性标注。"""
+
+    query: str = Field(..., min_length=1, max_length=500)
+    relevant_doc_ids: list[str] = Field(default_factory=list, description="用户标「相关」的 doc_id")
+    irrelevant_doc_ids: list[str] = Field(default_factory=list, description="用户标「不相关」的 doc_id")
+    session_id: Optional[str] = Field(default=None, max_length=100, description="可选会话标识")
+
+
+class FeedbackResponse(BaseModel):
+    """反馈记录结果。"""
+
+    query: str
+    recorded: int
+    message: str = "反馈已记录"
+
+
+class FeedbackQueryRequest(BaseModel):
+    query: str
+
+
+class FeedbackInfoResponse(BaseModel):
+    query: str
+    relevant: list[str]
+    irrelevant: list[str]
+    has_feedback: bool
+
+
+class FeedbackClearResponse(BaseModel):
+    query: str
+    removed: int
+    message: str = "反馈已清除"
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def record_relevance_feedback(request: FeedbackRequest):
+    """记录一次相关性反馈（ENRICH 反馈入口）。
+
+    用户对本轮 query 的检索结果做"相关/不相关"标注 → 落盘，
+    供后续 `/knowledge/search`（feedback=true + RAG_USE_RELEVANCE_FEEDBACK 开关开）
+    做 Rocchio 反馈增强重排。
+    """
+
+    from src.rag.relevance_feedback import record_feedback
+
+    if not request.relevant_doc_ids and not request.irrelevant_doc_ids:
+        raise HTTPException(status_code=400, detail="relevant/irrelevant 至少一个非空")
+
+    out = await run_in_threadpool(
+        record_feedback,
+        request.query,
+        request.relevant_doc_ids,
+        request.irrelevant_doc_ids,
+        request.session_id,
+    )
+    return FeedbackResponse(query=request.query, recorded=out.get("recorded", 0))
+
+
+@router.get("/feedback", response_model=FeedbackInfoResponse)
+async def get_relevance_feedback(request: Annotated[FeedbackQueryRequest, Body()]):
+    """查询某 query 当前累积的相关/不反馈 doc 列表。"""
+
+    from src.rag.relevance_feedback import load_feedback
+
+    fb = await run_in_threadpool(load_feedback, request.query)
+    relevant = fb.get("relevant", [])
+    irrelevant = fb.get("irrelevant", [])
+    return FeedbackInfoResponse(
+        query=request.query,
+        relevant=relevant,
+        irrelevant=irrelevant,
+        has_feedback=bool(relevant or irrelevant),
+    )
+
+
+@router.delete("/feedback", response_model=FeedbackClearResponse)
+async def clear_relevance_feedback(request: Annotated[FeedbackQueryRequest, Body()]):
+    """清除某 query 的全部反馈记录。"""
+
+    from src.rag.relevance_feedback import clear_feedback
+
+    removed = await run_in_threadpool(clear_feedback, request.query)
+    return FeedbackClearResponse(query=request.query, removed=removed)
