@@ -182,6 +182,7 @@ class GraphAgent:
         result["community_hits"] = community_hits
         return result
 
+    @staticmethod
     def _format_raw_result(*, result: Any, query_type: Optional[str]) -> Any:
         if query_type is None:
             if isinstance(result, dict):

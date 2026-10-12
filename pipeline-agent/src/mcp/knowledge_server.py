@@ -179,10 +179,25 @@ class KnowledgeMCPServer(MCPServer):
 
     async def call_tool(self, tool_name: str, args: Dict[str, Any]) -> MCPToolCallResult:
         query_text = str(args.get("question") or args.get("query") or "").strip()
-        if not query_text:
-            return MCPToolCallResult(ok=False, content=None, error="question/query is required")
 
         try:
+            if tool_name == "process_long_document":
+                # 内容直传型工具:文档正文可放 content/question/query,question 非必填
+                from src.tools.distill_long_document import process_long_document
+
+                content = str(args.get("content") or query_text).strip()
+                result = process_long_document(
+                    content=content,
+                    title=str(args.get("title") or "未命名文档"),
+                    doc_id=args.get("doc_id") or None,
+                    category=str(args.get("category") or "cases"),
+                    auto_refresh=bool(args.get("auto_refresh", True)),
+                )
+                if wants_contract(args):
+                    result = build_result_contract("distill_long_document", result)
+                return MCPToolCallResult(ok=bool(result.get("ok", True)), content=result)
+            if not query_text:
+                return MCPToolCallResult(ok=False, content=None, error="question/query is required")
             if tool_name == "search_knowledge_base":
                 result = get_knowledge_agent().execute(query_text)
                 if wants_contract(args):
@@ -202,21 +217,6 @@ class KnowledgeMCPServer(MCPServer):
                 result = get_graph_agent().execute(query_text, query_type="equipment_chain")
                 if wants_contract(args):
                     result = build_result_contract("graph_agent", result)
-                return MCPToolCallResult(ok=True, content=result)
-            if tool_name == "process_long_document":
-                # 长文本 → LLM 六维关系蒸馏进 Graph RAG（因果链+共享+设备+标准+步骤+知识点
-                # → 未注册文档自动入库 → 入图 → 三层刷新 → 检索验证）
-                from src.tools.distill_long_document import process_long_document
-
-                result = process_long_document(
-                    content=str(args.get("content") or ""),
-                    title=str(args.get("title") or "未命名文档"),
-                    doc_id=args.get("doc_id") or None,
-                    category=str(args.get("category") or "cases"),
-                    auto_refresh=bool(args.get("auto_refresh", True)),
-                )
-                if wants_contract(args):
-                    result = build_result_contract("distill_long_document", result)
                 return MCPToolCallResult(ok=True, content=result)
             return MCPToolCallResult(ok=False, content=None, error=f"unsupported tool: {tool_name}")
         except Exception as exc:  # noqa: BLE001

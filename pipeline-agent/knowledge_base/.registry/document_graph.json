@@ -97883,6 +97883,416 @@
             "namespace": "document",
             "normalized_name": "形成闭环后纳入本文档"
           }
+        },
+        {
+          "id": "fault::末站进站温度偏低-c02499b5cb07",
+          "type": "fault",
+          "name": "末站进站温度偏低",
+          "description": "故障：末站进站温度偏低",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "cause::管道保温层局部破损-f8a4dd0c934b",
+          "type": "cause",
+          "name": "管道保温层局部破损",
+          "description": "原因：管道保温层局部破损（概率 0.90）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.9
+          }
+        },
+        {
+          "id": "sol::巡检定位破损保温段并补做保温-d427338346ba",
+          "type": "solution",
+          "name": "巡检定位破损保温段并补做保温",
+          "description": "解法：巡检定位破损保温段并补做保温",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "high",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::伴热功率不足-69a637ee1641",
+          "type": "cause",
+          "name": "伴热功率不足",
+          "description": "原因：伴热功率不足（概率 0.70）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.7
+          }
+        },
+        {
+          "id": "sol::核算伴热实际功率并加配电容-c2188143e6f0",
+          "type": "solution",
+          "name": "核算伴热实际功率并加配电容",
+          "description": "解法：核算伴热实际功率并加配电容",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "medium",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::输送流量短时拉高-b1b8a3bd0f36",
+          "type": "cause",
+          "name": "输送流量短时拉高",
+          "description": "原因：输送流量短时拉高（概率 0.50）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.5
+          }
+        },
+        {
+          "id": "sol::按季节曲线控量输送-c7018b919c82",
+          "type": "solution",
+          "name": "按季节曲线控量输送",
+          "description": "解法：按季节曲线控量输送",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "low",
+            "downtime": null
+          }
+        },
+        {
+          "id": "fault::输油泵电流突增-8248867bc702",
+          "type": "fault",
+          "name": "输油泵电流突增",
+          "description": "故障：输油泵电流突增",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "cause::泵入口过滤器压差过大-e0eb627bcb44",
+          "type": "cause",
+          "name": "泵入口过滤器压差过大",
+          "description": "原因：泵入口过滤器压差过大（概率 0.95）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.95
+          }
+        },
+        {
+          "id": "sol::在线清洗更换入口过滤器滤网-0f8de98ab227",
+          "type": "solution",
+          "name": "在线清洗/更换入口过滤器滤网",
+          "description": "解法：在线清洗/更换入口过滤器滤网",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "low",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::介质粘度季节性升高-d772e71ce601",
+          "type": "cause",
+          "name": "介质粘度季节性升高",
+          "description": "原因：介质粘度季节性升高（概率 0.60）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.6
+          }
+        },
+        {
+          "id": "sol::按油温调整粘度后重新核定扬程-766e386a1eff",
+          "type": "solution",
+          "name": "按油温调整粘度后重新核定扬程",
+          "description": "解法：按油温调整粘度后重新核定扬程",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "medium",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::泵叶轮轻微磨损-1c6cd18fd5fd",
+          "type": "cause",
+          "name": "泵叶轮轻微磨损",
+          "description": "原因：泵叶轮轻微磨损（概率 0.30）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.3
+          }
+        },
+        {
+          "id": "sol::安排停机做叶轮探伤-aff1e4efe091",
+          "type": "solution",
+          "name": "安排停机做叶轮探伤",
+          "description": "解法：安排停机做叶轮探伤",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "high",
+            "downtime": "周期长"
+          }
+        },
+        {
+          "id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "type": "fault",
+          "name": "管道局部摩阻异常升高",
+          "description": "故障：管道局部摩阻异常升高",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "cause::管壁结蜡-a1a0c8eab2d7",
+          "type": "cause",
+          "name": "管壁结蜡",
+          "description": "原因：管壁结蜡（概率 0.80）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.8
+          }
+        },
+        {
+          "id": "sol::投加降凝剂热油循环-39efdcaa3916",
+          "type": "solution",
+          "name": "投加降凝剂+热油循环",
+          "description": "解法：投加降凝剂+热油循环",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "medium",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::介质含水率上升-1731af5d2e75",
+          "type": "cause",
+          "name": "介质含水率上升",
+          "description": "原因：介质含水率上升（概率 0.50）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.5
+          }
+        },
+        {
+          "id": "sol::脱水控制含水率-42f73eac9dc5",
+          "type": "solution",
+          "name": "脱水控制含水率",
+          "description": "解法：脱水控制含水率",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "medium",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::管道内浮生物-0b2a588d4c24",
+          "type": "cause",
+          "name": "管道内浮生物",
+          "description": "原因：管道内浮生物（概率 0.20）",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "probability": 0.2
+          }
+        },
+        {
+          "id": "sol::评估清管作业-d8abda8ef8cc",
+          "type": "solution",
+          "name": "评估清管作业",
+          "description": "解法：评估清管作业",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "5c351266e819",
+            "cost": "high",
+            "downtime": "需停机窗口"
+          }
+        },
+        {
+          "id": "eq::输油管道-923f19dce3ad",
+          "type": "pipeline",
+          "name": "输油管道",
+          "description": "设备：输油管道（pipeline）",
+          "properties": {
+            "namespace": "expert",
+            "equipment_kind": "pipeline",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "eq::末站-bea857408b6a",
+          "type": "concept",
+          "name": "末站",
+          "description": "关联实体：末站（设备链路占位，语义需人工补全）",
+          "properties": {
+            "namespace": "expert",
+            "note": "设备链路",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "eq::输油泵-61a86f44de5e",
+          "type": "concept",
+          "name": "输油泵",
+          "description": "关联实体：输油泵（设备链路占位，语义需人工补全）",
+          "properties": {
+            "namespace": "expert",
+            "note": "设备链路",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "eq::伴热装置-d58a752e87ed",
+          "type": "concept",
+          "name": "伴热装置",
+          "description": "关联实体：伴热装置（设备链路占位，语义需人工补全）",
+          "properties": {
+            "namespace": "expert",
+            "note": "设备链路",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "eq::入口过滤器-1d73897a3cc7",
+          "type": "concept",
+          "name": "入口过滤器",
+          "description": "关联实体：入口过滤器（设备链路占位，语义需人工补全）",
+          "properties": {
+            "namespace": "expert",
+            "note": "设备链路",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "eq::泵叶轮-c878d8045748",
+          "type": "concept",
+          "name": "泵叶轮",
+          "description": "关联实体：泵叶轮（设备链路占位，语义需人工补全）",
+          "properties": {
+            "namespace": "expert",
+            "note": "设备链路",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "stp::记录发生时刻-ed4b1b530cbf",
+          "type": "concept",
+          "name": "记录发生时刻",
+          "description": "操作步骤：记录发生时刻",
+          "properties": {
+            "namespace": "expert",
+            "order": 1.0,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "stp::记录当时流量温度粘度三参数-30920ca5bfe2",
+          "type": "concept",
+          "name": "记录当时流量/温度/粘度三参数",
+          "description": "操作步骤：记录当时流量/温度/粘度三参数",
+          "properties": {
+            "namespace": "expert",
+            "order": 2.0,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "stp::记录处置动作-823002d206a1",
+          "type": "concept",
+          "name": "记录处置动作",
+          "description": "操作步骤：记录处置动作",
+          "properties": {
+            "namespace": "expert",
+            "order": 3.0,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "stp::记录恢复时长-f853a4ee436f",
+          "type": "concept",
+          "name": "记录恢复时长",
+          "description": "操作步骤：记录恢复时长",
+          "properties": {
+            "namespace": "expert",
+            "order": 4.0,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "stp::形成闭环后纳入本文档供下次同类故障快速对照-b1d1c8408422",
+          "type": "concept",
+          "name": "形成闭环后纳入本文档，供下次同类故障快速对照",
+          "description": "操作步骤：形成闭环后纳入本文档，供下次同类故障快速对照",
+          "properties": {
+            "namespace": "expert",
+            "order": 5.0,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "ku::末站进站温度偏低因果链-4ca5070352a7",
+          "type": "concept",
+          "name": "末站进站温度偏低因果链",
+          "description": "知识点（知识点）：末站进站温度偏低因果链",
+          "properties": {
+            "namespace": "expert",
+            "unit_type": "知识点",
+            "importance": 0.9,
+            "content": "进站油温比设计低4~6℃，主因保温层局部破损(0.9)、伴热功率不足(0.7)、流量短时拉高(0.5)；处置为补做保温、加配伴热电容、按季节曲线控量。",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "ku::输油泵电流突增因果链-7f3ba1b756b2",
+          "type": "concept",
+          "name": "输油泵电流突增因果链",
+          "description": "知识点（知识点）：输油泵电流突增因果链",
+          "properties": {
+            "namespace": "expert",
+            "unit_type": "知识点",
+            "importance": 0.95,
+            "content": "机组电流短时突增15%~30%触发过载保护，几乎每次根因为泵入口过滤器压差过大(0.95)；核心处置为在线清洗/更换入口滤网。",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "ku::管道局部摩阻异常升高因果链-1b2be168bf19",
+          "type": "concept",
+          "name": "管道局部摩阻异常升高因果链",
+          "description": "知识点（知识点）：管道局部摩阻异常升高因果链",
+          "properties": {
+            "namespace": "expert",
+            "unit_type": "知识点",
+            "importance": 0.8,
+            "content": "管段摩阻较基线上浮8%以上，主因管壁结蜡(0.8，冬季高发)、含水率上升(0.5)、内浮生物(0.2)；处置为投加降凝剂+热油循环、脱水、评估清管。",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "id": "ku::故障处置闭环记录规范-d4cf1aee9b19",
+          "type": "concept",
+          "name": "故障处置闭环记录规范",
+          "description": "知识点（方法）：故障处置闭环记录规范",
+          "properties": {
+            "namespace": "expert",
+            "unit_type": "方法",
+            "importance": 0.7,
+            "content": "任何故障处置都应记录发生时刻、当时流量/温度/粘度三参数、处置动作、恢复时长，形成闭环后纳入文档供同类故障快速对照。",
+            "source_doc_id": "5c351266e819"
+          }
         }
       ],
       "edges": [
@@ -101216,6 +101626,437 @@
             "namespace": "document",
             "source_doc_id": "5c351266e819",
             "relation": "sequential_section"
+          }
+        },
+        {
+          "source_id": "fault::末站进站温度偏低-c02499b5cb07",
+          "target_id": "cause::管道保温层局部破损-f8a4dd0c934b",
+          "type": "caused_by",
+          "weight": 0.9,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.9,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::管道保温层局部破损-f8a4dd0c934b",
+          "target_id": "sol::巡检定位破损保温段并补做保温-d427338346ba",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "high",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::末站进站温度偏低-c02499b5cb07",
+          "target_id": "cause::伴热功率不足-69a637ee1641",
+          "type": "caused_by",
+          "weight": 0.7,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.7,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::伴热功率不足-69a637ee1641",
+          "target_id": "sol::核算伴热实际功率并加配电容-c2188143e6f0",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "medium",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::末站进站温度偏低-c02499b5cb07",
+          "target_id": "cause::输送流量短时拉高-b1b8a3bd0f36",
+          "type": "caused_by",
+          "weight": 0.5,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.5,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::输送流量短时拉高-b1b8a3bd0f36",
+          "target_id": "sol::按季节曲线控量输送-c7018b919c82",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "low",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::输油泵电流突增-8248867bc702",
+          "target_id": "cause::泵入口过滤器压差过大-e0eb627bcb44",
+          "type": "caused_by",
+          "weight": 0.95,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.95,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::泵入口过滤器压差过大-e0eb627bcb44",
+          "target_id": "sol::在线清洗更换入口过滤器滤网-0f8de98ab227",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "low",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::输油泵电流突增-8248867bc702",
+          "target_id": "cause::介质粘度季节性升高-d772e71ce601",
+          "type": "caused_by",
+          "weight": 0.6,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.6,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::介质粘度季节性升高-d772e71ce601",
+          "target_id": "sol::按油温调整粘度后重新核定扬程-766e386a1eff",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "medium",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::输油泵电流突增-8248867bc702",
+          "target_id": "cause::泵叶轮轻微磨损-1c6cd18fd5fd",
+          "type": "caused_by",
+          "weight": 0.3,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.3,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::泵叶轮轻微磨损-1c6cd18fd5fd",
+          "target_id": "sol::安排停机做叶轮探伤-aff1e4efe091",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "high",
+            "downtime": "周期长",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "target_id": "cause::管壁结蜡-a1a0c8eab2d7",
+          "type": "caused_by",
+          "weight": 0.8,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.8,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::管壁结蜡-a1a0c8eab2d7",
+          "target_id": "sol::投加降凝剂热油循环-39efdcaa3916",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "medium",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "target_id": "cause::介质含水率上升-1731af5d2e75",
+          "type": "caused_by",
+          "weight": 0.5,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.5,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::介质含水率上升-1731af5d2e75",
+          "target_id": "sol::脱水控制含水率-42f73eac9dc5",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "medium",
+            "downtime": null,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "target_id": "cause::管道内浮生物-0b2a588d4c24",
+          "type": "caused_by",
+          "weight": 0.2,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": 0.2,
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "cause::管道内浮生物-0b2a588d4c24",
+          "target_id": "sol::评估清管作业-d8abda8ef8cc",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "high",
+            "downtime": "需停机窗口",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::末站进站温度偏低-c02499b5cb07",
+          "target_id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "type": "related_fault",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "related_fault",
+            "shared_cause": null,
+            "shared_solution": null,
+            "note": "进站温度偏低使油温下降，易诱发管壁结蜡，进而导致摩阻异常升高，构成温度—结蜡—摩阻的跨故障因果链",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::输油泵电流突增-8248867bc702",
+          "target_id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "type": "shared_cause",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "shared_cause",
+            "shared_cause": "介质物性恶化（粘度升高/结蜡）",
+            "shared_solution": null,
+            "note": "介质物性恶化（粘度升高/结蜡）",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "fault::末站进站温度偏低-c02499b5cb07",
+          "target_id": "fault::管道局部摩阻异常升高-531c70b93370",
+          "type": "shared_solution",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "shared_solution",
+            "shared_cause": null,
+            "shared_solution": "热油循环/伴热加配提升油温",
+            "note": "热油循环/伴热加配提升油温",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "eq::输油管道-923f19dce3ad",
+          "target_id": "eq::末站-bea857408b6a",
+          "type": "contains",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "contains",
+            "note": "管道末端设有末站，进站温度在此监测",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "eq::输油管道-923f19dce3ad",
+          "target_id": "eq::输油泵-61a86f44de5e",
+          "type": "contains",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "contains",
+            "note": "管道沿线设输油泵机组提供输送动力",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "eq::末站-bea857408b6a",
+          "target_id": "eq::伴热装置-d58a752e87ed",
+          "type": "installed",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "installed",
+            "note": "末站/沿线设伴热以维持进站油温",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "eq::输油泵-61a86f44de5e",
+          "target_id": "eq::入口过滤器-1d73897a3cc7",
+          "type": "contains",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "contains",
+            "note": "泵入口装有过滤器，压差过大直接导致电流突增",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "eq::输油泵-61a86f44de5e",
+          "target_id": "eq::泵叶轮-c878d8045748",
+          "type": "contains",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "contains",
+            "note": "叶轮磨损会引起电流异常",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "eq::入口过滤器-1d73897a3cc7",
+          "target_id": "eq::输油泵-61a86f44de5e",
+          "type": "installed",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "installed",
+            "note": "安装于泵入口，滤网堵塞是电流突增的根因",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "stp::记录发生时刻-ed4b1b530cbf",
+          "target_id": "stp::记录当时流量温度粘度三参数-30920ca5bfe2",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "sequential_step",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "stp::记录当时流量温度粘度三参数-30920ca5bfe2",
+          "target_id": "stp::记录处置动作-823002d206a1",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "sequential_step",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "stp::记录处置动作-823002d206a1",
+          "target_id": "stp::记录恢复时长-f853a4ee436f",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "sequential_step",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "stp::记录恢复时长-f853a4ee436f",
+          "target_id": "stp::形成闭环后纳入本文档供下次同类故障快速对照-b1d1c8408422",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "sequential_step",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "doc::5c351266e819",
+          "target_id": "ku::末站进站温度偏低因果链-4ca5070352a7",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "knowledge_unit",
+            "content": "进站油温比设计低4~6℃，主因保温层局部破损(0.9)、伴热功率不足(0.7)、流量短时拉高(0.5)；处置为补做保温、加配伴热电容、按季节曲线控量。",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "doc::5c351266e819",
+          "target_id": "ku::输油泵电流突增因果链-7f3ba1b756b2",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "knowledge_unit",
+            "content": "机组电流短时突增15%~30%触发过载保护，几乎每次根因为泵入口过滤器压差过大(0.95)；核心处置为在线清洗/更换入口滤网。",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "doc::5c351266e819",
+          "target_id": "ku::管道局部摩阻异常升高因果链-1b2be168bf19",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "knowledge_unit",
+            "content": "管段摩阻较基线上浮8%以上，主因管壁结蜡(0.8，冬季高发)、含水率上升(0.5)、内浮生物(0.2)；处置为投加降凝剂+热油循环、脱水、评估清管。",
+            "source_doc_id": "5c351266e819"
+          }
+        },
+        {
+          "source_id": "doc::5c351266e819",
+          "target_id": "ku::故障处置闭环记录规范-d4cf1aee9b19",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "knowledge_unit",
+            "content": "任何故障处置都应记录发生时刻、当时流量/温度/粘度三参数、处置动作、恢复时长，形成闭环后纳入文档供同类故障快速对照。",
+            "source_doc_id": "5c351266e819"
           }
         }
       ],
@@ -200167,5 +201008,5 @@
       "updated_at": "2026-10-12T05:36:19.394594"
     }
   },
-  "updated_at": "2026-10-12T05:37:40.392447"
+  "updated_at": "2026-10-12T11:20:43.662075"
 }

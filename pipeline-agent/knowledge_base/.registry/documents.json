@@ -605,14 +605,14 @@
       "file_name": "G-E5-客户现场因果样本-202610110000000001.md",
       "relative_path": "cases/G-E5-客户现场因果样本-202610110000000001.md",
       "file_type": "md",
-      "file_size_bytes": 1733,
+      "file_size_bytes": 5993,
       "source_type": "local_file",
       "status": "indexed",
       "chunk_count": 5,
       "ingest_stage": "DONE",
       "progress_percent": 100,
       "created_at": "2026-10-11T14:26:24",
-      "updated_at": "2026-10-11T17:17:12"
+      "updated_at": "2026-10-12T19:27:56"
     },
     "56b057bf88c6": {
       "doc_id": "56b057bf88c6",

@@ -239,7 +239,11 @@ export default function KnowledgeHub() {
       message.warning('请输入问题');
       return;
     }
-    setChat((cur) => [...cur, { role: 'user', content: q }]);
+    setChat((cur) => [
+      ...cur,
+      { role: 'user', content: q },
+      { role: 'bot', content: '', streaming: true },
+    ]);
     setChatInput('');
     setRouting(true);
     setActiveRoute(null);
@@ -424,20 +428,25 @@ export default function KnowledgeHub() {
             <div className={styles.plan}>
               <div className={styles.planItem}>
                 <span className={styles.k}>起点</span>
-                <span className={styles.v}>{graphResult?.result?.plan?.start_node_id ?? '—'}</span>
+                <span className={styles.v}>
+                  {graphResult?.result?.center_node ?? graphResult?.result?.plan?.start_node_id ?? '—'}
+                </span>
               </div>
               <div className={styles.planItem}>
                 <span className={styles.k}>边</span>
-                <span className={styles.v}>{(graphResult?.result?.plan?.edge_types ?? []).join('/ ') || '—'}</span>
+                <span className={styles.v}>
+                  {Array.from(new Set(((graphResult?.result?.visualization?.edges ?? []) as Array<{ type?: string }>).map((e) => e?.type).filter(Boolean))).slice(0, 4).join('/ ')
+                    || (graphResult?.result?.plan?.edge_types ?? []).join('/ ') || '—'}
+                </span>
               </div>
               <div className={styles.planItem}>
                 <span className={styles.k}>跳数</span>
-                <span className={styles.v}>{graphResult?.result?.plan?.max_hops ?? '—'}</span>
+                <span className={styles.v}>{graphResult?.result?.plan?.max_hops ?? '1'}</span>
               </div>
             </div>
             <div className={styles.stat}>
-              到达 <b>{Object.keys(graphResult?.result?.reached ?? {}).length}</b> · 路径{' '}
-              <b>{graphResult?.result?.path_count ?? 0}</b>
+              到达 <b>{graphResult?.result?.total_matches ?? Object.keys(graphResult?.result?.reached ?? {}).length}</b> · 路径{' '}
+              <b>{((graphResult?.result?.visualization?.edges ?? []).length || graphResult?.result?.path_count || 0)}</b>
             </div>
           </div>
 
