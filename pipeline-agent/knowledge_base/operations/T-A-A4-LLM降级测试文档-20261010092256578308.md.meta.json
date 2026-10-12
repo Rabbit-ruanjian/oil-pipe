@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "title": "T-A A4 LLM降级测试文档",
+    "source": "ta-a4-llm-degrade",
+    "category": "operations",
+    "tags": [
+      "operations",
+      "ingest"
+    ],
+    "author": null,
+    "summary": null,
+    "language": "zh-CN",
+    "version": null,
+    "external_id": null,
+    "effective_at": null
+  },
+  "source_type": "upload",
+  "hitl_extract_history": {
+    "complex_extract": {
+      "decision": "no",
+      "doc_id": "2f839342aa6f"
+    }
+  }
+}
