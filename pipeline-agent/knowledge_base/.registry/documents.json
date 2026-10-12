@@ -686,14 +686,14 @@
       "file_name": "G-E6-冬季输油风险-202610110000000002.md",
       "relative_path": "cases/G-E6-冬季输油风险-202610110000000002.md",
       "file_type": "md",
-      "file_size_bytes": 822,
+      "file_size_bytes": 2384,
       "source_type": "local_file",
       "status": "indexed",
       "chunk_count": 3,
       "ingest_stage": "DONE",
       "progress_percent": 100,
       "created_at": "2026-10-11T15:46:55",
-      "updated_at": "2026-10-11T17:17:12"
+      "updated_at": "2026-10-12T22:14:30"
     },
     "465e9dd71e50": {
       "doc_id": "465e9dd71e50",

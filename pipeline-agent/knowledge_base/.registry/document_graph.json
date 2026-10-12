@@ -116542,6 +116542,210 @@
             "namespace": "document",
             "normalized_name": "化段"
           }
+        },
+        {
+          "id": "fault::管道内结蜡导致摩阻升高-13d5ea68e500",
+          "type": "fault",
+          "name": "管道内结蜡导致摩阻升高",
+          "description": "故障：管道内结蜡导致摩阻升高",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "id": "cause::油温偏低蜡晶析出-1cb4058022d6",
+          "type": "cause",
+          "name": "油温偏低蜡晶析出",
+          "description": "原因：油温偏低蜡晶析出",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "probability": null
+          }
+        },
+        {
+          "id": "sol::提高输送温度并投加降凝剂-109935f2ca9f",
+          "type": "solution",
+          "name": "提高输送温度并投加降凝剂",
+          "description": "解法：提高输送温度并投加降凝剂",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "cost": "high",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::流速低于临界携蜡流速-fcf5f8e2f7ea",
+          "type": "cause",
+          "name": "流速低于临界携蜡流速",
+          "description": "原因：流速低于临界携蜡流速",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "probability": null
+          }
+        },
+        {
+          "id": "sol::核算季节性流速下限并控量-1ce70f3bde22",
+          "type": "solution",
+          "name": "核算季节性流速下限并控量",
+          "description": "解法：核算季节性流速下限并控量",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "cost": "medium",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::管壁粗糙度冬季加剧-c2d53998ed31",
+          "type": "cause",
+          "name": "管壁粗糙度冬季加剧",
+          "description": "原因：管壁粗糙度冬季加剧",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "probability": null
+          }
+        },
+        {
+          "id": "sol::安排冬季专项清管-2839f58e5168",
+          "type": "solution",
+          "name": "安排冬季专项清管",
+          "description": "解法：安排冬季专项清管",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "cost": "low",
+            "downtime": "需停机窗口"
+          }
+        },
+        {
+          "id": "fault::伴热电缆故障导致管段失热-a0d89fd775dc",
+          "type": "fault",
+          "name": "伴热电缆故障导致管段失热",
+          "description": "故障：伴热电缆故障导致管段失热",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "id": "cause::伴热电缆老化短路-d7ec2fabd3c7",
+          "type": "cause",
+          "name": "伴热电缆老化短路",
+          "description": "原因：伴热电缆老化短路",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "probability": null
+          }
+        },
+        {
+          "id": "sol::巡检伴热回路绝缘并更换老化段-dc6ab51aae9f",
+          "type": "solution",
+          "name": "巡检伴热回路绝缘并更换老化段",
+          "description": "解法：巡检伴热回路绝缘并更换老化段",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "cost": "high",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::伴热控制器温控漂移-5faaefb70d9c",
+          "type": "cause",
+          "name": "伴热控制器温控漂移",
+          "description": "原因：伴热控制器温控漂移",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "probability": null
+          }
+        },
+        {
+          "id": "sol::标定伴热控制器温控-79e6443a3641",
+          "type": "solution",
+          "name": "标定伴热控制器温控",
+          "description": "解法：标定伴热控制器温控",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "cost": "medium",
+            "downtime": null
+          }
+        },
+        {
+          "id": "cause::积雪覆盖伴热管段散热加剧-f8be61168697",
+          "type": "cause",
+          "name": "积雪覆盖伴热管段散热加剧",
+          "description": "原因：积雪覆盖伴热管段散热加剧",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "probability": null
+          }
+        },
+        {
+          "id": "sol::除雪并加设伴热段保温罩-440fa258aa3c",
+          "type": "solution",
+          "name": "除雪并加设伴热段保温罩",
+          "description": "解法：除雪并加设伴热段保温罩",
+          "properties": {
+            "namespace": "expert",
+            "source_doc_id": "20b77ddfc180",
+            "cost": "low",
+            "downtime": null
+          }
+        },
+        {
+          "id": "eq::某管道-ebf274f62a0c",
+          "type": "pipeline",
+          "name": "某管道",
+          "description": "设备：某管道（pipeline）",
+          "properties": {
+            "namespace": "expert",
+            "equipment_kind": "pipeline",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "id": "eq::伴热电缆-e689fadaebc3",
+          "type": "concept",
+          "name": "伴热电缆",
+          "description": "设备：伴热电缆",
+          "properties": {
+            "namespace": "expert",
+            "equipment_kind": "other",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "id": "eq::伴热控制器-689b706d640f",
+          "type": "concept",
+          "name": "伴热控制器",
+          "description": "设备：伴热控制器",
+          "properties": {
+            "namespace": "expert",
+            "equipment_kind": "other",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "id": "ku::冬季输油风险处置知识-1f6cbc4c6361",
+          "type": "concept",
+          "name": "冬季输油风险处置知识",
+          "description": "知识点（知识点）：冬季输油风险处置知识",
+          "properties": {
+            "namespace": "expert",
+            "unit_type": "知识点",
+            "importance": 0.9,
+            "content": "某管道冬季（11月~次年2月）运行风险经验，按故障因果整理，涵盖结蜡摩阻升高与伴热电缆故障失热两类故障的原因与处置。",
+            "source_doc_id": "20b77ddfc180"
+          }
         }
       ],
       "edges": [
@@ -118029,6 +118233,182 @@
             "namespace": "document",
             "source_doc_id": "20b77ddfc180",
             "relation": "sequential_section"
+          }
+        },
+        {
+          "source_id": "fault::管道内结蜡导致摩阻升高-13d5ea68e500",
+          "target_id": "cause::油温偏低蜡晶析出-1cb4058022d6",
+          "type": "caused_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "cause::油温偏低蜡晶析出-1cb4058022d6",
+          "target_id": "sol::提高输送温度并投加降凝剂-109935f2ca9f",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "high",
+            "downtime": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "fault::管道内结蜡导致摩阻升高-13d5ea68e500",
+          "target_id": "cause::流速低于临界携蜡流速-fcf5f8e2f7ea",
+          "type": "caused_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "cause::流速低于临界携蜡流速-fcf5f8e2f7ea",
+          "target_id": "sol::核算季节性流速下限并控量-1ce70f3bde22",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "medium",
+            "downtime": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "fault::管道内结蜡导致摩阻升高-13d5ea68e500",
+          "target_id": "cause::管壁粗糙度冬季加剧-c2d53998ed31",
+          "type": "caused_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "cause::管壁粗糙度冬季加剧-c2d53998ed31",
+          "target_id": "sol::安排冬季专项清管-2839f58e5168",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "low",
+            "downtime": "需停机窗口",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "fault::伴热电缆故障导致管段失热-a0d89fd775dc",
+          "target_id": "cause::伴热电缆老化短路-d7ec2fabd3c7",
+          "type": "caused_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "cause::伴热电缆老化短路-d7ec2fabd3c7",
+          "target_id": "sol::巡检伴热回路绝缘并更换老化段-dc6ab51aae9f",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "high",
+            "downtime": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "fault::伴热电缆故障导致管段失热-a0d89fd775dc",
+          "target_id": "cause::伴热控制器温控漂移-5faaefb70d9c",
+          "type": "caused_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "cause::伴热控制器温控漂移-5faaefb70d9c",
+          "target_id": "sol::标定伴热控制器温控-79e6443a3641",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "medium",
+            "downtime": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "fault::伴热电缆故障导致管段失热-a0d89fd775dc",
+          "target_id": "cause::积雪覆盖伴热管段散热加剧-f8be61168697",
+          "type": "caused_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "caused_by",
+            "probability": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "cause::积雪覆盖伴热管段散热加剧-f8be61168697",
+          "target_id": "sol::除雪并加设伴热段保温罩-440fa258aa3c",
+          "type": "solved_by",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "solved_by",
+            "cost": "low",
+            "downtime": null,
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "fault::伴热电缆故障导致管段失热-a0d89fd775dc",
+          "target_id": "fault::管道内结蜡导致摩阻升高-13d5ea68e500",
+          "type": "related_fault",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "related_fault",
+            "shared_cause": null,
+            "shared_solution": null,
+            "note": "伴热失热导致油温偏低，进而蜡晶析出、结蜡摩阻升高，构成冬季典型因果链",
+            "source_doc_id": "20b77ddfc180"
+          }
+        },
+        {
+          "source_id": "doc::20b77ddfc180",
+          "target_id": "ku::冬季输油风险处置知识-1f6cbc4c6361",
+          "type": "references",
+          "weight": 1.0,
+          "properties": {
+            "namespace": "expert",
+            "relation": "knowledge_unit",
+            "content": "某管道冬季（11月~次年2月）运行风险经验，按故障因果整理，涵盖结蜡摩阻升高与伴热电缆故障失热两类故障的原因与处置。",
+            "source_doc_id": "20b77ddfc180"
           }
         }
       ],
@@ -201008,5 +201388,5 @@
       "updated_at": "2026-10-12T05:36:19.394594"
     }
   },
-  "updated_at": "2026-10-12T11:20:43.662075"
+  "updated_at": "2026-10-12T14:12:08.612889"
 }
