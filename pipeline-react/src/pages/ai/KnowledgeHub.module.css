@@ -1,0 +1,330 @@
+/* 知识库中枢:深色数字孪生 · ①②③ 三列并排 */
+.root {
+  --bg: #0a0e1a;
+  --bg2: #0f1526;
+  --panel: #121a2e;
+  --panel2: #182238;
+  --line: #243150;
+  --line2: #2e3d5e;
+  --text: #e6edf7;
+  --text2: #8b9bb8;
+  --text3: #5a6a8a;
+  --cyan: #22d3ee;
+  --blue: #3b82f6;
+  --violet: #8b5cf6;
+  --fault: #f43f5e;
+  --cause: #fb923c;
+  --sol: #34d399;
+  --std: #a3e635;
+  --param: #2dd4bf;
+  --accent: linear-gradient(135deg, #22d3ee, #3b82f6);
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  background: radial-gradient(1200px 600px at 70% -10%, #13203a 0%, var(--bg) 55%);
+  color: var(--text);
+  min-height: 100%;
+  padding: 20px;
+  overflow-x: auto;
+}
+
+/* ===== 顶栏 ===== */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--accent); display: grid; place-items: center;
+  font-weight: 800; font-size: 16px; color: #04121f;
+  box-shadow: 0 6px 24px rgba(34, 211, 238, 0.35);
+}
+.brand h1 { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; }
+.brand p { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.meta { display: flex; gap: 8px; flex-wrap: wrap; }
+.badge {
+  font-size: 12px; color: var(--text2);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 6px 13px; background: var(--panel);
+}
+.badge b { color: var(--cyan); }
+
+/* ===== ①②③ 三列 ===== */
+.trio {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1.1fr;
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1200px) { .trio { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 860px) { .trio { grid-template-columns: 1fr; } }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.colHead { display: flex; align-items: center; gap: 11px; flex-wrap: wrap; }
+.colNum {
+  font-size: 11px; font-weight: 700; color: var(--cyan);
+  background: rgba(34, 211, 238, 0.12); border: 1px solid rgba(34, 211, 238, 0.35);
+  border-radius: 7px; padding: 3px 9px; letter-spacing: 1px; font-family: var(--mono);
+}
+.colHead h2 { font-size: 15px; font-weight: 600; }
+.colHint { font-size: 11px; color: var(--text3); flex: 1; min-width: 0; }
+
+/* ===== 面板 ===== */
+.panel {
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+  position: relative; overflow: hidden;
+}
+.panel::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+}
+.panelHead {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; font-size: 13px; font-weight: 600; gap: 8px; flex-wrap: wrap;
+}
+.panelHead div { flex: 1; }
+
+/* ===== 视图切换 ===== */
+.viewToggle {
+  display: inline-flex; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 3px;
+}
+.viewToggle button {
+  background: none; border: none; color: var(--text2); font-size: 12px;
+  padding: 5px 13px; border-radius: 8px; cursor: pointer; font-weight: 500;
+}
+.viewToggle button.on { background: var(--accent); color: #04121f; font-weight: 700; }
+
+/* ===== ① 看板 ===== */
+.kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.kcol {
+  background: var(--bg2); border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px; display: flex; flex-direction: column; min-height: 180px;
+}
+.kcolHead {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+  margin-bottom: 8px;
+}
+.kcolHead span:last-child {
+  margin-left: auto; font-size: 10px; color: var(--text3); font-family: var(--mono);
+}
+.kcard {
+  background: var(--panel2); border: 1px solid var(--line2); border-left-width: 3px;
+  border-radius: 8px; padding: 8px; margin-bottom: 7px; font-size: 12px;
+}
+.kcolEmpty { font-size: 11px; color: var(--text3); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 11px; }
+.legend span { display: flex; align-items: center; gap: 6px; color: var(--text2); }
+.legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+/* ===== ① 查询计划 ===== */
+.plan { display: grid; gap: 8px; }
+.planItem {
+  display: flex; align-items: center; gap: 8px; background: var(--bg2);
+  border: 1px solid var(--line); border-radius: 9px; padding: 8px 11px;
+}
+.planItem .k { font-size: 10px; color: var(--text3); font-family: var(--mono); width: 40px; }
+.planItem .v { font-size: 13px; color: var(--text); flex: 1; }
+.stat { font-size: 11px; color: var(--text3); margin-top: 10px; }
+.stat b { color: var(--text); font-size: 13px; }
+
+/* ===== ② 专家入库 ===== */
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.row > * { flex: 1; min-width: 140px; }
+.row > Select, .row .ant-select { flex: 0 0 auto; }
+.row2 { display: flex; flex-direction: column; gap: 10px; }
+.expertHead { font-size: 12px; font-weight: 600; }
+.expertRow { display: grid; grid-template-columns: 1fr 1fr 70px 1fr 28px; gap: 6px; align-items: center; }
+.expertRow .ant-input, .expertRow .ant-input-number { width: 100%; }
+.btnRow { display: flex; gap: 8px; }
+.add {
+  font-size: 12px; padding: 7px 14px; border-radius: 9px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--line2); color: var(--text2);
+}
+.add:hover { color: var(--cyan); border-color: var(--cyan); }
+.go {
+  background: var(--accent); border: none; color: #04121f; font-weight: 700;
+  border-radius: 9px; padding: 8px 16px; cursor: pointer; font-size: 12px;
+}
+.go:disabled { opacity: 0.6; cursor: not-allowed; }
+.ingMsg { font-size: 11px; color: var(--sol); }
+.del {
+  font-size: 11px; padding: 0; border-radius: 7px; border: 1px solid var(--line2);
+  background: var(--panel); color: var(--text2); cursor: pointer; width: 28px; height: 30px;
+}
+.del:hover { color: var(--fault); border-color: var(--fault); }
+
+/* ===== ② 文档列表 ===== */
+.docList { display: flex; flex-direction: column; }
+.docHead, .docRow {
+  display: grid; grid-template-columns: 1.6fr 70px 80px 56px; gap: 8px; align-items: center;
+}
+.docHead {
+  padding: 8px 12px; background: var(--bg2); border-radius: 9px;
+  font-size: 10px; color: var(--text3); letter-spacing: 0.4px; margin-bottom: 8px;
+}
+.docRow { padding: 9px 12px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.docRow:last-child { border-bottom: none; }
+.docRow:hover { background: var(--bg2); }
+.docName { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.docFile {
+  width: 28px; height: 28px; border-radius: 8px; background: var(--panel);
+  border: 1px solid var(--line2); display: grid; place-items: center;
+  font-size: 9px; font-weight: 700; font-family: var(--mono); color: var(--cyan);
+  flex: 0 0 28px;
+}
+.docTitle { font-weight: 500; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docSub { font-size: 10px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docCat {
+  font-size: 10px; color: var(--blue); background: rgba(59, 130, 246, 0.14);
+  border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 8px; border-radius: 6px;
+  font-family: var(--mono);
+}
+.docSt { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.docSt i { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); }
+.docSt.indexed { color: var(--sol); } .docSt.indexed i { background: var(--sol); }
+.docSt.uploaded { color: var(--blue); } .docSt.uploaded i { background: var(--blue); }
+.docSt.failed { color: var(--fault); } .docSt.failed i { background: var(--fault); }
+.docSt.parsing { color: var(--std); }
+.docSt.parsing i { background: var(--std); animation: pulse 1.2s infinite; }
+.docSt.chunked { color: var(--param); } .docSt.chunked i { background: var(--param); }
+.docDel {
+  font-size: 10px; padding: 4px 8px; border-radius: 7px; border: 1px solid var(--line2);
+  background: var(--panel); color: var(--text2); cursor: pointer; font-family: var(--mono);
+}
+.docDel:hover { color: var(--fault); border-color: var(--fault); }
+.refresh {
+  font-size: 11px; padding: 4px 11px; border-radius: 7px; border: 1px solid var(--line2);
+  background: var(--panel); color: var(--cyan); cursor: pointer; font-family: var(--mono);
+}
+.refresh:hover { border-color: var(--cyan); }
+.fmtLine { font-size: 10px; color: var(--text3); margin-top: 9px; font-family: var(--mono); }
+input[type='file'] { color: var(--text2); font-size: 12px; }
+
+/* ===== ③ 对话面板 ===== */
+.chatPanel {
+  background: linear-gradient(180deg, var(--panel2), var(--panel));
+  border: 1px solid var(--line); border-radius: 16px; overflow: hidden; position: relative;
+}
+.chatPanel::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.5), transparent);
+}
+.chatHead {
+  display: flex; align-items: center; gap: 9px; padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.av {
+  width: 30px; height: 30px; border-radius: 9px; background: var(--accent);
+  display: grid; place-items: center; font-weight: 800; font-size: 13px; color: #04121f;
+}
+.tt { font-size: 14px; font-weight: 600; }
+.sub { font-size: 10px; color: var(--text3); }
+.chatSt { font-size: 11px; color: var(--sol); font-family: var(--mono); margin-left: auto; }
+.switch {
+  display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2);
+  cursor: pointer; background: none; border: none;
+}
+.tk, .tkOn { width: 30px; height: 17px; border-radius: 999px; position: relative; }
+.tk { background: var(--line); }
+.tkOn { background: var(--cyan); }
+.tk::after, .tkOn::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 13px; height: 13px;
+  border-radius: 50%; background: var(--text3);
+}
+.tkOn::after { left: 15px; background: #04121f; }
+
+.msgs { padding: 14px 16px; max-height: 360px; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
+.msgUser { display: flex; justify-content: flex-end; }
+.userBubble {
+  background: var(--accent); color: #04121f; font-weight: 500;
+  border-radius: 13px; border-bottom-right-radius: 4px;
+  padding: 10px 13px; font-size: 13px; line-height: 1.6; max-width: 85%;
+}
+.msgBot { display: flex; gap: 9px; }
+.bob {
+  width: 26px; height: 26px; border-radius: 8px; background: var(--panel2);
+  border: 1px solid var(--line); display: grid; place-items: center;
+  font-size: 11px; color: var(--text2); flex: 0 0 26px; font-weight: 700;
+}
+.botBubble {
+  background: var(--bg2); border: 1px solid var(--line); border-bottom-left-radius: 4px;
+  border-radius: 13px; padding: 10px 13px; font-size: 13px; line-height: 1.65; flex: 1;
+  min-width: 0;
+}
+.route { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); font-size: 11px; }
+.routeTag {
+  font-family: var(--mono); font-weight: 700; padding: 3px 9px; border-radius: 7px;
+  background: rgba(139, 92, 246, 0.18); color: var(--violet);
+}
+.routeGraph .routeTag { background: rgba(251, 146, 60, 0.18); color: var(--cause); }
+.routeRetrieve .routeTag { background: rgba(34, 211, 238, 0.18); color: var(--cyan); }
+.streamBody p { margin: 0 0 8px; } .streamBody p:last-child { margin: 0; }
+.streamBody b { color: var(--cyan); }
+.cursor {
+  display: inline-block; width: 8px; height: 15px; background: var(--cyan);
+  vertical-align: -2px; animation: blink 1s step-end infinite; border-radius: 2px;
+}
+.inputBar { display: flex; gap: 9px; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--bg2); }
+.inputBar input {
+  flex: 1; background: var(--panel); border: 1px solid var(--line2); color: var(--text);
+  border-radius: 11px; padding: 11px 14px; font-size: 13px; outline: none; min-width: 0;
+}
+.inputBar input:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.12); }
+.inputBar button {
+  background: var(--accent); border: none; color: #04121f; font-weight: 700;
+  border-radius: 11px; padding: 0 18px; cursor: pointer; font-size: 13px;
+}
+.inputBar button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ===== ③ 检索路线 ===== */
+.pipe { display: flex; flex-direction: column; }
+.pstep {
+  position: relative; padding: 0 0 14px 40px; display: flex; gap: 9px;
+}
+.pstep:last-child { padding-bottom: 0; }
+.pstep::before {
+  content: ""; position: absolute; left: 14px; top: 26px; bottom: 0;
+  width: 2px; background: var(--line2);
+}
+.pstep:last-child::before { display: none; }
+.pnode {
+  position: absolute; left: 0; top: 2px; width: 28px; height: 28px; border-radius: 9px;
+  display: grid; place-items: center; background: var(--panel);
+  border: 1px solid var(--line2); font-size: 10px; color: var(--text3);
+}
+.pstep.hit .pnode { background: var(--accent); color: #04121f; border-color: transparent; box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.15); }
+.pt { font-size: 13px; font-weight: 600; }
+.ps { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.pstep.hit .pt { color: var(--text); } .pstep.hit .ps { color: var(--text2); }
+
+/* ===== ③ 检索结果 ===== */
+.searchResults { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 220px; overflow: auto; }
+.scard { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; padding: 11px; }
+.scardTop { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.scardCat {
+  font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 6px;
+  background: rgba(59, 130, 246, 0.18); color: var(--blue);
+}
+.scardTitle { font-size: 12px; font-weight: 600; flex: 1; line-height: 1.3; }
+.scardScore { font-size: 10px; color: var(--cyan); font-family: var(--mono); }
+.scardPrev { font-size: 11px; color: var(--text2); line-height: 1.55; }
+
+/* ===== 通用 ===== */
+.empty { color: var(--text3); font-size: 12px; text-align: center; padding: 18px; }
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+/* 面板内 antd 控件适配深色 */
+.root .ant-input, .root .ant-input-number, .root .ant-select-selector {
+  background: var(--panel) !important;
+  border-color: var(--line2) !important;
+  color: var(--text) !important;
+}
+.root .ant-input::placeholder, .root .ant-input-number-input::placeholder { color: var(--text3); }
+.root .ant-select-arrow, .root .ant-select-selection-placeholder { color: var(--text3) !important; }
+.root .ant-select .ant-select-selector { background: var(--panel); }

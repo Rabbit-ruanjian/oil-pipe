@@ -12,6 +12,7 @@ const PipelineList = lazy(() => import('./pages/data/PipelineList'));
 const PumpStationList = lazy(() => import('./pages/data/PumpStationList'));
 const OilPropertyList = lazy(() => import('./pages/data/OilPropertyList'));
 const KnowledgeEntry = lazy(() => import('./pages/ai/KnowledgeEntry'));
+const KnowledgeHub = lazy(() => import('./pages/ai/KnowledgeHub'));
 
 const HydraulicAnalysis = lazy(() => import('./pages/calculation/HydraulicAnalysis'));
 const Optimization = lazy(() => import('./pages/calculation/Optimization'));
@@ -167,6 +168,14 @@ export const router = createBrowserRouter([
         element: (
           <Suspense fallback={<Loading />}>
             <KnowledgeEntry />
+          </Suspense>
+        ),
+      },
+      {
+        path: 'ai/hub',
+        element: (
+          <Suspense fallback={<Loading />}>
+            <KnowledgeHub />
           </Suspense>
         ),
       },

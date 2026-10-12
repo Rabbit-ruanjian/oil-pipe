@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识库中枢 · 高保真设计稿 v2</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0e1a; --bg2:#0f1526; --panel:#121a2e; --panel2:#182238;
+    --line:#243150; --line2:#2e3d5e;
+    --text:#e6edf7; --text2:#8b9bb8; --text3:#5a6a8a;
+    --cyan:#22d3ee; --blue:#3b82f6; --violet:#8b5cf6;
+    --fault:#f43f5e; --cause:#fb923c; --sol:#34d399; --std:#a3e635; --param:#2dd4bf;
+    --accent:linear-gradient(135deg,#22d3ee,#3b82f6);
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 600px at 70% -10%,#13203a 0%,var(--bg) 55%);
+    color:var(--text);font-family:-apple-system,"PingFang SC",system-ui,sans-serif;overflow:hidden}
+  /* Claude 式横向工作台:左历史 | 中对话 | 右上下文 */
+  .app{display:grid;grid-template-columns:248px minmax(0,1fr) 332px;height:100vh;max-width:1560px;margin:0 auto}
+  @media(max-width:1180px){.app{grid-template-columns:0 minmax(0,1fr) 332px}.hist{display:none}}
+  @media(max-width:880px){.app{grid-template-columns:minmax(0,1fr)}.ctx{display:none}}
+  .col{min-height:0;min-width:0;overflow-y:auto}
+  /* 左:历史会话 */
+  .hist{background:var(--bg2);border-right:1px solid var(--line);padding:14px}
+  .hist .nb{width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);
+    color:var(--text);font-size:13px;font-weight:600;border-radius:10px;padding:10px 12px;cursor:pointer;
+    display:flex;align-items:center;gap:8px;margin-bottom:14px}
+  .hist .nb:hover{border-color:var(--cyan)}
+  .hist .nlbl{font-size:10px;color:var(--text3);letter-spacing:1px;font-weight:600;margin:14px 0 7px}
+  .hist .hitem{display:flex;gap:9px;align-items:flex-start;padding:8px 9px;border-radius:9px;cursor:pointer;
+    font-size:12px;color:var(--text2)}
+  .hist .hitem:hover{background:var(--panel)}
+  .hist .hitem.on{background:var(--panel);color:var(--text)}
+  .hist .hitem .ic{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;flex:0 0 22px;
+    font-size:10px;font-weight:700;background:var(--panel2)}
+  .hist .hitem .ic.g{color:var(--cause)} .hist .hitem .ic.r{color:var(--cyan)}
+  .hist .hitem .ttwrap{flex:1;min-width:0}
+  .hist .hitem .tt{line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hist .hitem .tm{font-size:9px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+  /* 中:对话 */
+  .chat{display:flex;flex-direction:column;height:100vh;min-width:0}
+  .chat-top{display:flex;align-items:center;gap:10px;padding:14px 20px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:rgba(10,14,26,.85);backdrop-filter:blur(10px);z-index:5}
+  .chat-top .av{width:34px;height:34px;border-radius:10px;background:var(--accent);display:grid;place-items:center;
+    font-weight:800;font-size:14px;color:#04121f}
+  .chat-top .tt{font-size:14px;font-weight:600}
+  .chat-top .tt small{display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:1px}
+  .chat-top .st{margin-left:auto;font-size:11px;color:var(--sol);font-family:var(--mono)}
+  .chat-main{flex:1;overflow-y:auto;padding:18px 0}
+  .chat-inner{max-width:760px;margin:0 auto;padding:0 22px}
+  .chat-composer{padding:12px 22px 16px;border-top:1px solid var(--line);background:rgba(10,14,26,.85);
+    backdrop-filter:blur(10px);position:sticky;bottom:0}
+  .chat-composer .inner{max-width:760px;margin:0 auto}
+  /* 右:上下文 */
+  .ctx{background:var(--bg2);border-left:1px solid var(--line);padding:16px}
+  .ctx .cttl{font-size:11px;color:var(--text3);letter-spacing:1px;font-weight:600;margin:16px 0 8px}
+  .ctx .cttl:first-child{margin-top:0}
+  .ctxbox{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:14px}
+  .ctxbox .ch{font-size:12px;font-weight:600;margin-bottom:9px;display:flex;align-items:center;gap:7px}
+  .ctxbox .ch .more{margin-left:auto;font-size:10px;color:var(--cyan);cursor:pointer;font-weight:500}
+  #ctxgraph{width:100%;height:240px}
+  /* 底部 composer(Claude 式) */
+  .composer{background:var(--panel);border:1px solid var(--line2);border-radius:14px;overflow:hidden}
+  .composer .cbody{display:flex;align-items:center;gap:9px;padding:11px 13px}
+  .composer .cplus{width:30px;height:30px;border-radius:9px;background:var(--bg2);border:1px solid var(--line2);
+    display:grid;place-items:center;cursor:pointer;color:var(--text2);flex:0 0 30px}
+  .composer .cplus:hover{color:var(--cyan);border-color:var(--cyan)}
+  .composer input{flex:1;background:none;border:none;color:var(--text);font-size:14px;outline:none;min-width:0}
+  .composer input::placeholder{color:var(--text3)}
+  .composer .cfoot{display:flex;align-items:center;gap:14px;padding:7px 13px;border-top:1px solid var(--line);
+    background:var(--bg2);font-size:11px;color:var(--text3);flex-wrap:wrap}
+  .composer .cfoot .seg{display:flex;align-items:center;gap:6px;cursor:pointer;padding:4px 9px;border-radius:8px}
+  .composer .cfoot .seg:hover{background:var(--panel)}
+  .composer .cfoot .seg b{color:var(--text2);font-weight:500}
+  .composer .cfoot .dot{width:7px;height:7px;border-radius:50%}
+  .composer .cfoot .send{margin-left:auto;width:30px;height:30px;border-radius:50%;background:var(--accent);
+    display:grid;place-items:center;cursor:pointer;color:#04121f;border:none}
+  .composer .cfoot .send svg{width:15px;height:15px}
+  /* 消息 */
+  .msg{display:flex;gap:11px;margin-bottom:18px}
+  .msg.user{justify-content:flex-end}
+  .msg .bob{width:30px;height:30px;border-radius:9px;background:var(--panel);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--text2);flex:0 0 30px}
+  .msg.user .bob{order:2;background:var(--panel2)}
+  .bubble{max-width:82%;border-radius:14px;padding:11px 14px;font-size:14px;line-height:1.7}
+  .msg.user .bubble{background:var(--accent);color:#04121f;font-weight:500;border-bottom-right-radius:5px}
+  .msg.bot .bubble{background:var(--panel);border:1px solid var(--line);border-bottom-left-radius:5px}
+  .bubble .route{display:flex;align-items:center;gap:9px;margin-bottom:10px;padding-bottom:9px;
+    border-bottom:1px solid var(--line);font-size:11px}
+  .bubble .route .rl{font-family:var(--mono);font-weight:700;padding:3px 10px;border-radius:8px;font-size:11px}
+  .rl.graph{background:rgba(251,146,60,.18);color:var(--cause)}
+  .rl.retrieve{background:rgba(34,211,238,.18);color:var(--cyan)}
+  .rl.default{background:rgba(139,92,246,.18);color:var(--violet)}
+  .bubble .route .rr{color:var(--text3);flex:1;line-height:1.5}
+  .bubble p{margin:0 0 9px} .bubble p:last-child{margin:0}
+  .bubble b{color:var(--cyan)}
+  .cursor{display:inline-block;width:8px;height:15px;background:var(--cyan);vertical-align:-2px;
+    animation:blink 1s step-end infinite;border-radius:2px}
+  @keyframes blink{50%{opacity:0}}
+  /* 命中来源(右侧上下文,由对话检索触发回填) */
+  .sres{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow:auto}
+  .scard{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .scard .top{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+  .scat{font-size:9px;font-weight:700;padding:2px 7px;border-radius:5px;background:rgba(59,130,246,.18);color:var(--blue)}
+  .scat.cases{background:rgba(244,63,94,.18);color:var(--fault)}
+  .scat.faq{background:rgba(251,146,60,.18);color:var(--cause)}
+  .scat.operations{background:rgba(52,211,153,.18);color:var(--sol)}
+  .stitle{font-size:11px;font-weight:600;flex:1;line-height:1.3}
+  .sscore{font-size:10px;color:var(--cyan);font-family:var(--mono)}
+  .sprev{font-size:11px;color:var(--text2);line-height:1.55}
+  .src{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .src span{font-size:9px;color:var(--text3);border:1px solid var(--line);padding:1px 6px;border-radius:5px;font-family:var(--mono)}
+  .empty{color:var(--text3);font-size:11px;text-align:center;padding:14px}
+  /* header */
+  .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:42px;height:42px;border-radius:12px;background:var(--accent);display:grid;place-items:center;
+    font-weight:800;font-size:19px;color:#04121f;box-shadow:0 6px 24px rgba(34,211,238,.35)}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:.5px}
+  .brand p{font-size:12px;color:var(--text2);margin-top:2px}
+  .headmeta{display:flex;gap:8px;flex-wrap:wrap}
+  .badge{font-size:12px;color:var(--text2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:var(--panel)}
+  .badge b{color:var(--cyan)}
+  /* design-notes banner */
+  .note{font-size:12px;color:var(--text2);background:linear-gradient(90deg,rgba(139,92,246,.12),transparent);
+    border:1px solid rgba(139,92,246,.3);border-radius:12px;padding:12px 15px;margin-bottom:8px;line-height:1.7}
+  .note b{color:var(--violet)}
+  .note .k{color:var(--cyan);font-family:var(--mono);font-size:11px}
+  /* section */
+  .sec{display:flex;align-items:center;gap:11px;margin:32px 0 15px}
+  .sec .num{font-size:11px;font-weight:700;color:var(--cyan);background:rgba(34,211,238,.12);
+    border:1px solid rgba(34,211,238,.35);border-radius:7px;padding:3px 9px;letter-spacing:1px;font-family:var(--mono)}
+  .sec h2{font-size:16px;font-weight:600}
+  .sec .hint{font-size:12px;color:var(--text3);margin-left:auto;max-width:62%}
+  /* grid */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .grid.3{grid-template-columns:1.3fr 1fr}
+  /* ①②③ 三大功能横向一排(三列,列内滚动) */
+  .trio{display:grid;grid-template-columns:1.2fr 1fr 1.1fr;gap:16px;margin-top:6px}
+  .trio-col{display:flex;flex-direction:column;gap:14px;min-height:0}
+  .trio .panel{flex:0 0 auto}
+  @media(max-width:1200px){.trio{grid-template-columns:1fr 1fr}.trio-col:nth-child(3){grid-column:1/-1}}
+  @media(max-width:860px){.trio{grid-template-columns:1fr}}
+  .panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:16px;padding:18px;position:relative;overflow:hidden}
+  .panel::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(34,211,238,.5),transparent)}
+  .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:8px;flex-wrap:wrap}
+  .ph .t{font-size:14px;font-weight:600}
+  .ph .t small{display:block;font-size:11px;color:var(--text3);font-weight:400;margin-top:3px}
+  .chip{font-size:11px;color:var(--text2);border:1px solid var(--line2);padding:4px 10px;border-radius:999px;cursor:pointer;user-select:none}
+  .chip.on{color:#04121f;background:var(--cyan);border-color:transparent;font-weight:600}
+  .chip:hover{border-color:var(--cyan);color:var(--cyan)}
+  .chip.on:hover{color:#04121f}
+  /* view toggle */
+  .vttoggle{display:inline-flex;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:3px}
+  .vttoggle button{background:none;border:none;color:var(--text2);font-size:12px;padding:5px 13px;border-radius:8px;cursor:pointer;font-weight:500}
+  .vttoggle button.on{background:var(--accent);color:#04121f;font-weight:700}
+  /* graph */
+  #graph{width:100%;height:430px}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:11px}
+  .legend span{display:flex;align-items:center;gap:6px;color:var(--text2)}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+  /* kanban */
+  .kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;height:430px;overflow:hidden}
+  .kcol{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:11px;display:flex;flex-direction:column;min-height:0}
+  .kcol .kh{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;margin-bottom:10px}
+  .kcol .kh .n{margin-left:auto;font-size:10px;color:var(--text3);font-family:var(--mono)}
+  .kcard{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;padding:9px;margin-bottom:8px;
+    font-size:12px;flex:1;min-height:0;display:flex;flex-direction:column;gap:4px;position:relative;overflow:hidden}
+  .kcard .lbl{font-size:13px;font-weight:600;line-height:1.4}
+  .kcard .meta{margin-top:auto;font-size:10px;color:var(--text3);font-family:var(--mono)}
+  .kcard .bar{height:3px;border-radius:3px;background:var(--line2);margin-top:5px;overflow:hidden}
+  .kcard .bar i{display:block;height:100%;background:var(--accent)}
+  .kcol.fault .kcard{border-left:3px solid var(--fault)}
+  .kcol.cause .kcard{border-left:3px solid var(--cause)}
+  .kcol.solution .kcard{border-left:3px solid var(--sol)}
+  .kcol.standard .kcard{border-left:3px solid var(--std)}
+  .kcol.parameter .kcard{border-left:3px solid var(--param)}
+  .kcol.fault .kh{color:var(--fault)} .kcol.cause .kh{color:var(--cause)}
+  .kcol.solution .kh{color:var(--sol)} .kcol.standard .kh{color:var(--std)} .kcol.parameter .kh{color:var(--param)}
+  /* query bar */
+  .qbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .qbar input,.qbar select{background:var(--bg2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:10px 13px;font-size:13px;outline:none;flex:1;min-width:120px}
+  .qbar select{flex:0 0 168px}
+  .qbar input:focus,.qbar select:focus{border-color:var(--cyan)}
+  .qbar button{background:var(--accent);border:none;color:#04121f;font-weight:700;border-radius:10px;
+    padding:0 18px;cursor:pointer;font-size:13px;flex:0 0 auto}
+  .qbar button.ghost{background:none;border:1px solid var(--line2);color:var(--cyan);font-weight:600}
+  /* plan + reached */
+  .planbox{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+  .planbox .item{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 13px;flex:1;min-width:96px}
+  .planbox .item .k{font-size:10px;color:var(--text3);letter-spacing:1px}
+  .planbox .item .v{font-size:14px;font-weight:600;margin-top:3px;color:var(--cyan)}
+  .reached{display:flex;flex-wrap:wrap;gap:7px;max-height:150px;overflow:auto}
+  .tag{font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--line2);
+    background:var(--bg2);color:var(--text2);white-space:nowrap}
+  .tag.cause{border-color:rgba(251,146,60,.5);color:var(--cause)}
+  .tag.sol{border-color:rgba(52,211,153,.5);color:var(--sol)}
+  /* expert ingest (A 类因果,保留) */
+  .exprow{display:grid;grid-template-columns:1.1fr 1.1fr .6fr 1.1fr auto;gap:8px;margin-bottom:9px;align-items:center}
+  .exprow input{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;
+    color:var(--text);font-size:12px;outline:none}
+  .exprow .del{background:none;border:none;color:var(--fault);cursor:pointer;font-size:16px;padding:6px;line-height:1}
+  .exprow .del:hover{transform:scale(1.15)}
+  .addrow{width:100%;text-align:center;padding:9px;border:1px dashed var(--line2);border-radius:9px;
+    color:var(--text2);cursor:pointer;font-size:12px;margin-top:4px;background:none}
+  .addrow:hover{color:var(--cyan);border-color:var(--cyan)}
+  /* 富文本入库(参考 RAGFlow file-upload-dialog + parsed-result) */
+  .uptab{display:inline-flex;background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+  .uptab button{background:none;border:none;color:var(--text2);font-size:12px;padding:6px 13px;border-radius:8px;cursor:pointer;font-weight:500}
+  .uptab button.on{background:var(--accent);color:#04121f;font-weight:700}
+  .dropzone{border:2px dashed var(--line2);border-radius:13px;padding:22px;text-align:center;cursor:pointer;
+    transition:.2s;margin-bottom:12px;background:var(--bg2)}
+  .dropzone:hover{border-color:var(--cyan);background:rgba(34,211,238,.05)}
+  .dropzone .big{font-size:15px;font-weight:600;margin:8px 0 4px}
+  .dropzone .sub{font-size:11px;color:var(--text3)}
+  .dropzone .up{width:38px;height:38px;border-radius:11px;background:var(--accent);display:grid;place-items:center;margin:0 auto;color:#04121f}
+  .fmtchips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:11px}
+  .fmtchips span{font-size:10px;color:var(--text2);border:1px solid var(--line2);padding:3px 8px;border-radius:6px;font-family:var(--mono)}
+  .fmeta{display:flex;flex-wrap:wrap;gap:12px;font-size:11px;color:var(--text3);margin:4px 0 10px}
+  .fmeta b{color:var(--text);font-weight:600}
+  .fmeta .tag{border:1px solid var(--line2);border-radius:6px;padding:2px 8px}
+  .fmeta .tag.img{color:var(--std);border-color:rgba(163,230,53,.4)}
+  .fmeta .tag.tbl{color:var(--blue);border-color:rgba(59,130,246,.4)}
+  .fmeta .tag.mix{color:var(--violet);border-color:rgba(139,92,246,.4)}
+  /* 表格列角色配置(参考 RAGFlow table-column-extract + ROLE_OPTIONS) */
+  .colconf{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:12px;margin-bottom:10px}
+  .colconf .ch{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;margin-bottom:9px}
+  .colconf .ch .hint{font-size:10px;color:var(--text3);font-weight:400;margin-left:auto}
+  .colrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:7px}
+  .colrow .nm{font-size:12px;color:var(--text);font-weight:500}
+  .colrow .role{display:flex;gap:4px}
+  .colrow .role button{font-size:10px;padding:3px 9px;border-radius:7px;border:1px solid var(--line2);
+    background:none;color:var(--text2);cursor:pointer;font-family:var(--mono)}
+  .colrow .role button.on{background:rgba(34,211,238,.15);color:var(--cyan);border-color:rgba(34,211,238,.4)}
+  .rolelegend{display:flex;gap:12px;font-size:10px;color:var(--text3);margin-top:8px}
+  .rolelegend span b{font-family:var(--mono)}
+  /* chunk 预览(parsed-result 式,表格拆法/图像转 MD) */
+  .chunks{display:flex;flex-direction:column;gap:8px;max-height:230px;overflow:auto}
+  .chunk{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:11px}
+  .chunk .ch{display:flex;align-items:center;gap:7px;margin-bottom:6px;font-size:10px;color:var(--text3);font-family:var(--mono)}
+  .chunk .ch .n{color:var(--cyan)}
+  .chunk .ch .kind{margin-left:auto;border:1px solid var(--line2);border-radius:5px;padding:1px 7px;color:var(--text2)}
+  .chunk .ct{color:var(--text2);line-height:1.6}
+  .chunk .ct b{color:var(--sol);font-family:var(--mono);font-size:10px}
+  .chunk.tbl{border-left:3px solid var(--blue)}
+  .chunk.img{border-left:3px solid var(--std)}
+  .chunk.txt{border-left:3px solid var(--cyan)}
+  /* ② 入库选择表(拖文件后内联冒出,多选解析方式) */
+  .ingtable{background:var(--bg2);border:1px solid var(--line);border-radius:12px;
+    margin-top:10px;overflow:hidden;animation:rise .25s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .ingtable .ht{padding:10px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  .ingtable .ht .f{font-size:12px;font-weight:600;color:var(--text);flex:1}
+  .ingtable .ht .f small{display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:2px;font-family:var(--mono)}
+  .ingtable .ht .hint{font-size:10px;color:var(--text3)}
+  .ingtable .row{display:grid;grid-template-columns:24px 1fr auto auto;gap:10px;align-items:center;
+    padding:9px 13px;border-bottom:1px solid var(--line);cursor:pointer;transition:.12s}
+  .ingtable .row:last-child{border-bottom:none}
+  .ingtable .row:hover{background:var(--panel)}
+  .ingtable .row .cb{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--line2);display:grid;place-items:center;font-size:11px;color:#04121f}
+  .ingtable .row.on .cb{background:var(--cyan);border-color:var(--cyan)}
+  .ingtable .row.on .cb::after{content:"✓";font-weight:700}
+  .ingtable .row .nm{font-size:13px;font-weight:500}
+  .ingtable .row .nm small{display:block;font-size:10px;color:var(--text3);margin-top:2px;line-height:1.4}
+  .ingtable .row .tag{font-size:9px;font-family:var(--mono);padding:3px 8px;border-radius:6px;background:var(--panel);
+    border:1px solid var(--line2);color:var(--text2)}
+  .ingtable .row .tag.img{color:var(--std);border-color:rgba(163,230,53,.4)}
+  .ingtable .row .tag.tbl{color:var(--blue);border-color:rgba(59,130,246,.4)}
+  .ingtable .row .tag.rec{color:var(--cyan);border-color:rgba(34,211,238,.4)}
+  .ingtable .foot{padding:10px 13px;background:var(--panel);display:flex;align-items:center;gap:8px}
+  .ingtable .foot .sel{font-size:11px;color:var(--text2);flex:1}
+  .ingtable .foot .sel b{color:var(--cyan)}
+  .ingtable .foot button{padding:7px 15px;border-radius:8px;font-size:12px;cursor:pointer;font-weight:600}
+  .ingtable .foot .cancel{background:none;border:1px solid var(--line2);color:var(--text2)}
+  .ingtable .foot .go{background:var(--accent);border:none;color:#04121f}
+  /* ② 文档列表(保留原作者 Table:分类/状态/时间/删除)+ 刷新 */
+  .kblist{margin-top:12px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .kblhead{display:grid;grid-template-columns:1.5fr 84px 84px 92px 70px;gap:8px;padding:9px 13px;
+    background:var(--bg2);font-size:10px;color:var(--text3);letter-spacing:.4px;border-bottom:1px solid var(--line)}
+  .kblrow{display:grid;grid-template-columns:1.5fr 84px 84px 92px 70px;gap:8px;padding:11px 13px;
+    align-items:center;font-size:12px;border-bottom:1px solid var(--line)}
+  .kblrow:last-child{border-bottom:none}
+  .kblrow:hover{background:var(--bg2)}
+  .kblrow .fn{display:flex;align-items:center;gap:9px;min-width:0}
+  .kblrow .fi{width:28px;height:28px;border-radius:8px;background:var(--panel);border:1px solid var(--line2);
+    display:grid;place-items:center;font-size:9px;font-weight:700;font-family:var(--mono);color:var(--cyan);flex:0 0 28px}
+  .kblrow .fn .nm{font-weight:500;line-height:1.35;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .kblrow .fn .nm small{display:block;font-size:10px;color:var(--text3);font-weight:400;margin-top:1px}
+  .kblrow .cat{font-size:10px;color:var(--blue);background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.3);
+    padding:2px 8px;border-radius:6px;font-family:var(--mono);white-space:nowrap}
+  .kblrow .st{display:flex;align-items:center;gap:6px;font-size:11px}
+  .kblrow .st .dot{width:7px;height:7px;border-radius:50%;flex:0 0 7px}
+  .st.indexed{color:var(--sol)} .st.indexed .dot{background:var(--sol)}
+  .st.uploaded{color:var(--blue)} .st.uploaded .dot{background:var(--blue)}
+  .st.failed{color:var(--fault)} .st.failed .dot{background:var(--fault)}
+  .st.parsing{color:var(--std)} .st.parsing .dot{background:var(--std);animation:pulse 1.2s infinite}
+  .st.chunked{color:var(--param)} .st.chunked .dot{background:var(--param)}
+  .st.archived{color:var(--text3)} .st.archived .dot{background:var(--text3)}
+  @keyframes pulse{50%{opacity:.35}}
+  .kblrow .tm{font-size:10px;color:var(--text3);font-family:var(--mono);white-space:nowrap}
+  .kblrow .del{font-size:10px;padding:4px 9px;border-radius:7px;border:1px solid var(--line2);background:var(--panel);
+    color:var(--text2);cursor:pointer;font-family:var(--mono);text-align:center}
+  .kblrow .del:hover{color:var(--fault);border-color:var(--fault)}
+  .kbl-refresh{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);margin-top:10px}
+  .kbl-refresh button{font-size:11px;padding:4px 11px;border-radius:7px;border:1px solid var(--line2);
+    background:var(--panel);color:var(--cyan);cursor:pointer;font-family:var(--mono)}
+  .kbl-refresh button:hover{border-color:var(--cyan)}
+  /* 入库格式提示(对齐原作者:仅 md/txt/pdf/docx) */
+  .fmtline{font-size:10px;color:var(--text3);margin-top:9px;font-family:var(--mono)}
+  .fmtline b{color:var(--text2);font-weight:500}
+  /* RAGFlow 式 解析配置对话框(改解析/入库时) */
+  .kbgdialog{position:fixed;inset:0;background:rgba(5,8,18,.7);backdrop-filter:blur(3px);
+    display:none;place-items:center;z-index:60;padding:20px}
+  .kbgdialog.open{display:grid}
+  .kbgbox{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line2);
+    border-radius:16px;max-width:560px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);max-height:84vh;overflow:auto}
+  .kbgbox::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(34,211,238,.5),transparent)}
+  .kbgbox{position:relative}
+  .kbg-h{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .kbg-h .t{font-size:15px;font-weight:700}
+  .kbg-h .f{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:4px}
+  .kbg-b{padding:16px 18px}
+  .kbg-sec{margin-bottom:16px}
+  .kbg-sec .sl{font-size:11px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .ptype{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ptype .p{background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:11px;cursor:pointer}
+  .ptype .p.on{border-color:var(--cyan);background:rgba(34,211,238,.08)}
+  .ptype .p .h{font-size:12px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .ptype .p .h .ic{font-size:15px}
+  .ptype .p .d{font-size:10px;color:var(--text3);margin-top:4px;line-height:1.5}
+  .optabs{display:flex;gap:4px;margin-bottom:8px}
+  .optabs button{font-size:11px;padding:6px 11px;border-radius:8px;border:1px solid var(--line2);
+    background:var(--bg2);color:var(--text2);cursor:pointer}
+  .optabs button.on{background:var(--accent);color:#04121f;border-color:transparent;font-weight:600}
+  .optbody{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:12px;min-height:64px}
+  .optbody .k{font-size:10px;color:var(--text3);font-family:var(--mono);margin-bottom:5px}
+  .optbody .v{font-size:12px;color:var(--text2);line-height:1.6}
+  .kbg-f{padding:12px 18px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:flex-end}
+  .kbg-f button{padding:8px 16px;border-radius:9px;font-size:12px;cursor:pointer;font-weight:600}
+  .kbg-f .cancel{background:none;border:1px solid var(--line2);color:var(--text2)}
+  .kbg-f .go{background:var(--accent);border:none;color:#04121f}
+  /* ② 小巧入库输入条(Claude 式底部 bar + 拖入内联展开) */
+  .ing-bar{display:flex;align-items:center;gap:9px}
+  .ing-add{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--line2);
+    color:var(--text2);border-radius:9px;padding:9px 12px;cursor:pointer;font-size:12px;flex:0 0 auto;transition:.15s}
+  .ing-add:hover{border-color:var(--cyan);color:var(--cyan)}
+  .ing-add svg{flex:0 0 15px}
+  .ing-file{max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ing-textwrap{flex:1;min-width:0}
+  .ing-textwrap input{width:100%;background:var(--bg2);border:1px solid var(--line2);color:var(--text);
+    border-radius:9px;padding:9px 12px;font-size:12px;outline:none}
+  .ing-textwrap input:focus{border-color:var(--cyan)}
+  .ing-files{display:flex;gap:6px;margin-top:7px;flex-wrap:wrap}
+  .fchip{font-size:10px;color:var(--text2);background:var(--panel);border:1px solid var(--line2);
+    padding:3px 9px;border-radius:7px;font-family:var(--mono)}
+  .fchip i{color:var(--std);font-style:normal;margin-left:5px}
+  .ing-go{background:var(--accent);border:none;color:#04121f;font-weight:700;border-radius:9px;
+    padding:9px 16px;cursor:pointer;font-size:12px;flex:0 0 auto}
+  /* 内联展开(拖入文件后) */
+  .ing-panel{background:var(--bg2);border:1px solid var(--line);border-radius:11px;margin-top:11px;
+    padding:13px;display:none}
+  .ing-panel.open{display:block}
+  .ing-optg .gh{font-size:11px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .ing-optg .gh .tip{font-size:10px;color:var(--text3);font-weight:400;margin-left:6px}
+  .optrow{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+  .opt{background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:7px 12px;
+    font-size:11px;color:var(--text2);cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .opt .ic{font-size:12px}
+  .opt.on{border-color:var(--cyan);color:var(--text);background:rgba(34,211,238,.1)}
+  .ing-togs{display:flex;gap:14px;margin:9px 0 4px;flex-wrap:wrap}
+  .trow{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--text2);cursor:pointer}
+  .trow .tk{width:28px;height:16px;background:var(--line);border-radius:999px;position:relative;flex:0 0 28px;transition:.2s}
+  .trow .tk::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:var(--text3);transition:.2s}
+  .trow.on .tk{background:var(--cyan)}
+  .trow.on .tk::after{left:14px;background:#04121f}
+  .ing-foot{font-size:10px;color:var(--text3);margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+  .ing-foot .k{color:var(--text2)}
+  .ing-msg{font-size:11px;color:var(--sol);margin-top:9px;min-height:14px}
+  /* search cards */
+  .sres{display:flex;flex-direction:column;gap:10px;max-height:260px;overflow:auto}
+  .scard{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:13px}
+  .scard .top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .scat{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(59,130,246,.18);color:var(--blue)}
+  .scat.cases{background:rgba(244,63,94,.18);color:var(--fault)}
+  .scat.faq{background:rgba(251,146,60,.18);color:var(--cause)}
+  .scat.operations{background:rgba(52,211,153,.18);color:var(--sol)}
+  .stitle{font-size:13px;font-weight:600;flex:1}
+  .sscore{font-size:11px;color:var(--cyan);font-family:var(--mono)}
+  .sprev{font-size:12px;color:var(--text2);line-height:1.6}
+  .src{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .src span{font-size:10px;color:var(--text3);border:1px solid var(--line);padding:2px 7px;border-radius:6px;font-family:var(--mono)}
+  .empty{color:var(--text3);font-size:12px;text-align:center;padding:24px}
+  .stat{font-size:11px;color:var(--text3)}
+  .stat b{color:var(--text);font-size:13px}
+  /* ===== AI chat section (新) ===== */
+  .chatwrap{display:grid;grid-template-columns:1.4fr 1fr;gap:18px}
+  .chatpanel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:16px;overflow:hidden;position:relative}
+  .chatpanel::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(34,211,238,.5),transparent)}
+  .chathead{display:flex;align-items:center;gap:9px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .chathead .av{width:30px;height:30px;border-radius:9px;background:var(--accent);display:grid;place-items:center;
+    font-weight:800;font-size:13px;color:#04121f}
+  .chathead .tt{font-size:14px;font-weight:600}
+  .chathead .st{font-size:11px;color:var(--text3);margin-left:auto;font-family:var(--mono)}
+  .chathead .st.ok{color:var(--sol)}
+  .msgs{padding:14px 16px;max-height:430px;overflow:auto;display:flex;flex-direction:column;gap:13px}
+  .msg{display:flex;gap:9px}
+  .msg.user{justify-content:flex-end}
+  .msg .bob{width:26px;height:26px;border-radius:8px;background:var(--panel2);border:1px solid var(--line);
+    display:grid;place-items:center;font-size:11px;color:var(--text2);flex:0 0 26px;font-weight:700}
+  .msg.user .bob{background:var(--panel);order:2}
+  .bubble{max-width:78%;border-radius:13px;padding:10px 13px;font-size:13px;line-height:1.65}
+  .msg.user .bubble{background:var(--accent);color:#04121f;font-weight:500;border-bottom-right-radius:4px}
+  .msg.bot .bubble{background:var(--bg2);border:1px solid var(--line);border-bottom-left-radius:4px}
+  .bubble .route{display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:9px;
+    border-bottom:1px solid var(--line);font-size:11px}
+  .bubble .route .rl{font-family:var(--mono);font-weight:700;padding:3px 9px;border-radius:7px}
+  .rl.graph{background:rgba(251,146,60,.18);color:var(--cause)}
+  .rl.retrieve{background:rgba(34,211,238,.18);color:var(--cyan)}
+  .rl.default{background:rgba(139,92,246,.18);color:var(--violet)}
+  .bubble .route .rr{color:var(--text3);flex:1;font-size:11px}
+  .bubble p{margin:0 0 8px} .bubble p:last-child{margin:0}
+  .bubble .causal{font-size:12px;color:var(--text2);background:var(--panel);border:1px solid var(--line);
+    border-radius:9px;padding:9px 11px;line-height:1.7}
+  .bubble .causal b{color:var(--text)}
+  .bubble .causal .arrow{color:var(--cyan);font-family:var(--mono)}
+  .cursor{display:inline-block;width:8px;height:15px;background:var(--cyan);vertical-align:-2px;
+    animation:blink 1s step-end infinite;border-radius:2px}
+  @keyframes blink{50%{opacity:0}}
+  /* 历史会话(左侧主区内顶部) */
+  .histbar{display:flex;align-items:center;gap:8px;padding:11px 16px;border-bottom:1px solid var(--line)}
+  .histbar .lbl{font-size:11px;color:var(--text3);letter-spacing:1px;font-weight:600}
+  .histbar .plus{margin-left:auto;font-size:11px;color:var(--cyan);cursor:pointer;
+    border:1px solid rgba(34,211,238,.4);border-radius:8px;padding:4px 10px;background:rgba(34,211,238,.1)}
+  .histlist{padding:8px 16px;display:flex;flex-direction:column;gap:4px;max-height:150px;overflow:auto}
+  .histitem{display:flex;align-items:center;gap:9px;font-size:12px;padding:8px 10px;border-radius:9px;
+    color:var(--text2);cursor:pointer;background:none;border:none;text-align:left;width:100%}
+  .histitem:hover{background:var(--bg2)}
+  .histitem .ic{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;flex:0 0 24px;font-size:10px;font-weight:700}
+  .histitem.g .ic{background:rgba(251,146,60,.18);color:var(--cause)}
+  .histitem.r .ic{background:rgba(34,211,238,.18);color:var(--cyan)}
+  .histitem .tt{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;color:var(--text)}
+  .histitem .tm{font-size:9px;color:var(--text3);font-family:var(--mono)}
+  /* 底部输入框(标准对话输入) */
+  .inputbar{display:flex;gap:9px;padding:12px 16px;border-top:1px solid var(--line);background:var(--bg2)}
+  .inputbar input{flex:1;background:var(--panel);border:1px solid var(--line2);color:var(--text);
+    border-radius:11px;padding:11px 14px;font-size:13px;outline:none;min-width:0}
+  .inputbar input:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+  .inputbar button{background:var(--accent);border:none;color:#04121f;font-weight:700;
+    border-radius:11px;padding:0 18px;cursor:pointer;font-size:13px;flex:0 0 auto;display:flex;align-items:center;gap:6px}
+  .inputbar button svg{width:15px;height:15px}
+  /* 右侧:本次检索路线(干净流水线) */
+  .pipe{display:flex;flex-direction:column}
+  .pstep{position:relative;padding:0 0 14px 40px}
+  .pstep:last-child{padding-bottom:0}
+  .pstep::before{content:"";position:absolute;left:15px;top:26px;bottom:0;width:2px;background:var(--line2)}
+  .pstep:last-child::before{display:none}
+  .pnode{position:absolute;left:0;top:2px;width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+    background:var(--panel);border:1px solid var(--line2);font-size:12px;color:var(--text3)}
+  .pstep.hit .pnode{background:var(--accent);color:#04121f;border-color:transparent;box-shadow:0 0 0 4px rgba(34,211,238,.15)}
+  .pstep .pt{font-size:13px;font-weight:600;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .pstep .ps{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.5}
+  .pstep.hit .pt{color:var(--text)} .pstep.hit .ps{color:var(--text2)}
+  .pstep .pill{font-size:9px;font-family:var(--mono);padding:2px 7px;border-radius:6px;background:rgba(34,211,238,.18);color:var(--cyan)}
+  .switch{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text2);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .switch .tk{width:34px;height:19px;background:var(--line);border-radius:999px;position:relative;cursor:pointer;flex:0 0 34px}
+  .switch .tk::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--text3);transition:.2s}
+  .switch.on .tk{background:var(--cyan)}
+  .switch.on .tk::after{left:17px;background:#04121f}
+  .arch{font-size:10px;color:var(--text3);line-height:1.7;margin-top:8px;font-family:var(--mono)}
+  .arch b{color:var(--violet);font-weight:500}
+  /* footer */
+  .foot{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:11px;color:var(--text3);
+    display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .foot .k{color:var(--text2);font-family:var(--mono)}
+  /* responsive */
+  @media(max-width:980px){
+    .grid,.grid.3,.chatwrap{grid-template-columns:1fr}
+    .kanban{grid-template-columns:repeat(2,1fr);height:auto}
+    .sec .hint{max-width:100%;margin-left:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ①②③ 三大功能横向一排(三列并排) -->
+  <div class="trio">
+    <!-- ① 图:因果图谱 -->
+    <div class="trio-col">
+      <div class="sec"><span class="num">①</span><h2>图 · 因果图谱</h2>
+        <span class="hint">力导向/看板 · LLM 决策起点/边/跳数</span></div>
+      <div class="panel">
+        <div class="ph"><div class="t">因果链拓扑<small>力导向 / 看板 · 拖拽缩放</small></div>
+          <div class="vttoggle" id="vt">
+            <button class="on" data-v="graph" onclick="setView('graph')">力导向</button>
+            <button data-v="kanban" onclick="setView('kanban')">看板</button>
+          </div></div>
+        <div id="graph" style="height:300px"></div>
+        <div id="kanban" style="display:none;height:300px"></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--fault)"></i>fault</span>
+          <span><i class="dot" style="background:var(--cause)"></i>cause</span>
+          <span><i class="dot" style="background:var(--sol)"></i>solution</span>
+          <span><i class="dot" style="background:var(--std)"></i>standard</span>
+          <span><i class="dot" style="background:var(--param)"></i>parameter</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="t">查询计划<small>LLM 决策 · 失败降级默认</small></div></div>
+        <div class="planbox" style="margin:0">
+          <div class="item"><div class="k">起点</div><div class="v" id="p-start">fault_001</div></div>
+          <div class="item"><div class="k">边</div><div class="v" id="p-edge">cause/sol</div></div>
+          <div class="item"><div class="k">跳数</div><div class="v" id="p-hop">2</div></div>
+        </div>
+        <div class="stat" style="margin-top:10px">到达 <b id="p-count">10</b> · 路径 <b id="p-paths">11</b></div>
+      </div>
+    </div>
+
+    <!-- ② 添加:知识入库 -->
+    <div class="trio-col">
+      <div class="sec"><span class="num">②</span><h2>添加 · 知识入库</h2>
+        <span class="hint">对话式输入 + 文档列表 + 改解析对话框</span></div>
+      <div class="panel" style="padding:16px">
+    <!-- 对话式输入条:Claude 式,左＋上传 + 输入框 + 发送 -->
+    <div class="composer">
+      <div class="cbody">
+        <button class="cplus" onclick="openParseDialog()" title="上传 / 拖文件">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        </button>
+        <input id="ingText" placeholder="输入要入库的知识、故障处置… 或点左侧上传文件">
+      </div>
+      <div class="cfoot">
+        <span class="seg"><span class="dot" style="background:var(--std)"></span>拖文件 / 上传</span>
+        <span class="seg"><span class="dot" style="background:var(--cyan)"></span>可多选解析方式</span>
+        <button class="send" onclick="confirmParse()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 文档列表:保留原作者 Table(分类/状态/更新时间/删除)+ 正确格式 -->
+    <div class="kblist" id="kbList">
+      <div class="kblhead"><span>文档 / 文件</span><span>分类</span><span>状态</span><span>更新时间</span><span>操作</span></div>
+      <div class="kblrow">
+        <div class="fn"><span class="fi">MD</span><div class="nm">泵站出口压力低处置方案<small>20261009083020924787</small></div></div>
+        <span class="cat">案例</span>
+        <span class="st indexed"><span class="dot"></span>已入库</span>
+        <span class="tm">10-09 08:30</span>
+        <button class="del">删除</button>
+      </div>
+      <div class="kblrow">
+        <div class="fn"><span class="fi">MD</span><div class="nm">站口进站压力低处理<small>20261009091020769581</small></div></div>
+        <span class="cat">案例</span>
+        <span class="st parsing"><span class="dot"></span>解析中</span>
+        <span class="tm">10-09 09:10</span>
+        <button class="del">删除</button>
+      </div>
+      <div class="kblrow">
+        <div class="fn"><span class="fi">PDF</span><div class="nm">泵机管路阻力大规程<small>GB/T 50350</small></div></div>
+        <span class="cat">规程</span>
+        <span class="st indexed"><span class="dot"></span>已入库</span>
+        <span class="tm">10-08 16:20</span>
+        <button class="del">删除</button>
+      </div>
+      <div class="kblrow">
+        <div class="fn"><span class="fi">TXT</span><div class="nm">输油泵故障问答集<small>faq</small></div></div>
+        <span class="cat">问答</span>
+        <span class="st failed"><span class="dot"></span>失败</span>
+        <span class="tm">10-07 11:05</span>
+        <button class="del">删除</button>
+      </div>
+    </div>
+    <div class="fmtline"><b>支持格式</b> .md .txt .pdf .docx &nbsp;·&nbsp; <b>分类</b> 标准 / 公式 / 规程 / 案例 / 问答</div>
+    <div class="kbl-refresh"><span>文档列表</span><button onclick="closeParseDialog()">刷新</button></div>
+    <div class="ing-msg" id="ingestMsg"></div>
+      </div>
+    </div>
+
+    <!-- ③ 询问:对话问答 -->
+    <div class="trio-col">
+      <div class="sec"><span class="num">③</span><h2>询问 · 对话问答</h2>
+        <span class="hint">提问 → LLM 自选 B4图/B1B2B3检索/默认 · 流式打字</span></div>
+      <div class="grid 3" style="grid-template-columns:1fr">
+        <div class="chatpanel">
+          <div class="chathead">
+            <div class="av">智</div>
+            <div class="tt">智能对话<small>LLM 自动路由</small></div>
+            <div class="st ok" id="chatst">已连接</div>
+          </div>
+          <div class="msgs" id="msgs"></div>
+          <div class="inputbar">
+            <input id="aq" value="泵站出口压力持续下降怎么处置" placeholder="输入问题,LLM 自动选择查询方式…">
+            <button onclick="sendFromInput()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="15" height="15"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="ph"><div class="t">命中来源 + 检索路线<small>由 ③ 提问触发回填</small></div>
+          <div class="switch on" id="sw" onclick="toggleSwitch()"><div class="tk"></div><span>自动路由</span></div></div>
+        <div class="pipe" id="pipe">
+          <div class="pstep" data-r="graph">
+            <div class="pnode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="3"/><circle cx="19" cy="6" r="3"/><circle cx="19" cy="18" r="3"/><path d="M7.5 11l9-4M7.5 13l9 4"/></svg></div>
+            <div class="pt">B4 因果链图</div><div class="ps">故障排查 / 设备组成</div>
+          </div>
+          <div class="pstep" data-r="retrieve">
+            <div class="pnode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+            <div class="pt">B1·B2·B3 混合检索</div><div class="ps">概念 / 操作 / 知识</div>
+          </div>
+          <div class="pstep" data-r="default">
+            <div class="pnode"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg></div>
+            <div class="pt">默认单路</div><div class="ps">降级 · 逐字节不变</div>
+          </div>
+        </div>
+        <div class="arch" style="margin-top:10px"><b>命中路线:</b> <span id="hitlabel" style="color:var(--cyan)">—</span></div>
+        <div style="margin:14px 0 8px;font-size:12px;color:var(--text2)">命中来源</div>
+        <div class="sres" id="sres" style="max-height:170px"></div>
+      </div>
+    </div>
+  </div><!-- /trio -->
+
+  <!-- RAGFlow 式 解析配置对话框(改解析 / 入库 触发) -->
+  <div class="kbgdialog" id="kbgDialog" onclick="if(event.target===this)closeParseDialog()">
+    <div class="kbgbox">
+      <div class="kbg-h">
+        <div class="t">解析方式配置</div>
+        <div class="f" id="kbgFile">管道运维手册_Q3.xlsx · 23 chunk</div>
+      </div>
+      <div class="kbg-b">
+        <div class="kbg-sec">
+          <div class="sl">解析类型</div>
+          <div class="ptype" id="ptype">
+            <div class="p on" onclick="pickPtype(this)"><div class="h"><span class="ic">▦</span>内置解析器</div><div class="d">DeepDOC / PaddleOCR / MinerU / 纯文本</div></div>
+            <div class="p" onclick="pickPtype(this)"><div class="h"><span class="ic">⛓</span>数据管道</div><div class="d">自定义算子流水线(可接 LLM 抽取)</div></div>
+          </div>
+        </div>
+        <div class="kbg-sec">
+          <div class="sl">算子流水线(点 tab 配置)</div>
+          <div class="optabs" id="optTabs">
+            <button class="on" onclick="pickOptTab(this,'表格')">表格拆行</button>
+            <button onclick="pickOptTab(this,'图像')">图像 OCR</button>
+            <button onclick="pickOptTab(this,'向量')">向量入 Milvus</button>
+            <button onclick="pickOptTab(this,'因果图')">因果图谱</button>
+          </div>
+          <div class="optbody" id="optBody">
+            <div class="k">表格拆行 · chunk_method = table</div>
+            <div class="v">每行独立成 chunk · 列角色自动识别(索引/元数据)· 保留表头作为上下文</div>
+          </div>
+        </div>
+        <div class="kbg-sec" style="margin-bottom:0">
+          <div class="sl">检索方式(可多选)</div>
+          <div class="ingtable" style="display:block;margin:0;border:none;background:none">
+            <div class="row on" onclick="this.classList.toggle('on')"><span class="cb"></span>
+              <span class="nm">B1 横向扩召回<small>同义词/实体扩展,扩大候选池</small></span><span class="tag rec">开</span></div>
+            <div class="row on" onclick="this.classList.toggle('on')"><span class="cb"></span>
+              <span class="nm">B2 纵向分解<small>子问题各自检索后 RRF 融合</small></span><span class="tag rec">开</span></div>
+            <div class="row" onclick="this.classList.toggle('on')"><span class="cb"></span>
+              <span class="nm">B3 HyDE<small>生成假想答案并入候选</small></span><span class="tag">可插拔</span></div>
+            <div class="row on" onclick="this.classList.toggle('on')"><span class="cb"></span>
+              <span class="nm">B4 因果图遍历<small>故障/组成关系 → 有界 BFS</small></span><span class="tag">图</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="kbg-f">
+        <button class="cancel" onclick="closeParseDialog()">取消</button>
+        <button class="go" onclick="confirmParse()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>设计稿 · 横向 3 区块(图 / 添加 / 询问) · 确认后迁 React</span>
+  </div>
+</div>
+
+<script>
+// ===== 真实数据(fault_001 因果子图,来自 pipeline-agent 图谱构建器)=====
+const NODES=[
+ {id:"fault_001",name:"泵站出口压力持续下降",type:"fault"},
+ {id:"cause_001",name:"泵叶轮磨损",type:"cause"},
+ {id:"cause_002",name:"过滤器堵塞",type:"cause"},
+ {id:"cause_003",name:"油品粘度升高",type:"cause"},
+ {id:"cause_004",name:"管道结蜡",type:"cause"},
+ {id:"sol_001",name:"清洗过滤器",type:"solution"},
+ {id:"sol_002",name:"叶轮修复",type:"solution"},
+ {id:"sol_003",name:"升温输送",type:"solution"},
+ {id:"sol_004",name:"清管作业",type:"solution"},
+ {id:"sol_005",name:"降低流速",type:"solution"},
+ {id:"sol_006",name:"注入清蜡剂",type:"solution"},
+ {id:"std_gb50253",name:"输油管道工程设计规范",type:"standard"},
+ {id:"param_outlet_pressure",name:"outlet_pressure",type:"parameter"},
+ {id:"param_flow_rate",name:"flow_rate",type:"parameter"}
+];
+const EDGES=[
+ {source:"fault_001",target:"cause_001",type:"caused_by",weight:.35},
+ {source:"fault_001",target:"cause_002",type:"caused_by",weight:.30},
+ {source:"fault_001",target:"cause_003",type:"caused_by",weight:.20},
+ {source:"fault_001",target:"cause_004",type:"caused_by",weight:.15},
+ {source:"cause_001",target:"sol_002",type:"solved_by",weight:.9},
+ {source:"cause_002",target:"sol_001",type:"solved_by",weight:.85},
+ {source:"cause_003",target:"sol_003",type:"solved_by",weight:.7},
+ {source:"cause_003",target:"sol_005",type:"solved_by",weight:.5},
+ {source:"cause_004",target:"sol_004",type:"solved_by",weight:.75},
+ {source:"cause_004",target:"sol_006",type:"solved_by",weight:.4},
+ {source:"fault_001",target:"param_outlet_pressure",type:"affects",weight:1},
+ {source:"fault_001",target:"param_flow_rate",type:"affects",weight:.6},
+ {source:"std_gb50253",target:"fault_001",type:"references",weight:.5},
+ {source:"sol_002",target:"std_gb50253",type:"references",weight:.4}
+];
+const C={fault:"#f43f5e",cause:"#fb923c",solution:"#34d399",standard:"#a3e635",parameter:"#2dd4bf"};
+const TYPECOL={fault:["故障","fault"],cause:["原因","cause"],solution:["处置","solution"],standard:["规范","standard"],parameter:["参数","parameter"]};
+const byType={}; NODES.forEach(n=>{(byType[n.type]=byType[n.type]||[]).push(n)});
+
+let chart=null, view="graph";
+function renderGraph(){
+  if(!chart) chart=echarts.init(document.getElementById("graph"),null,{renderer:"canvas"});
+  chart.setOption({
+    backgroundColor:"transparent",
+    tooltip:{trigger:"item",backgroundColor:"#182238",borderColor:"#2e3d5e",
+      textStyle:{color:"#e6edf7",fontSize:12},formatter:p=>
+        p.dataType==='node'?`${p.data.name}<br/>类型 ${p.data.type}`:
+        `${p.data.source} → ${p.data.target}<br/>${p.data.type}`},
+    series:[{
+      type:"graph",layout:"force",roam:true,draggable:true,
+      edgeSymbol:["none","arrow"],
+      force:{repulsion:260,edgeLength:90,gravity:.08},
+      lineStyle:{color:"#2e3d5e",width:1.4,curveness:.15,opacity:.85},
+      label:{show:true,color:"#e6edf7",fontSize:11,position:"right"},
+      emphasis:{focus:"adjacency",lineStyle:{width:3}},
+      data:NODES.map(n=>({
+        ...n,symbolSize:n.type==="fault"?54:n.type==="cause"?40:n.type==="solution"?36:26,
+        itemStyle:{color:C[n.type]||"#8b9bb8",shadowBlur:n.type==="fault"?28:14,shadowColor:C[n.type]}
+      })),
+      links:EDGES.map(e=>({...e,lineStyle:{color:
+        e.type==="solved_by"?"rgba(52,211,153,.55)":
+        e.type==="caused_by"?"rgba(251,146,60,.55)":"rgba(163,230,53,.35)"}}))
+    }]
+  });
+}
+function renderKanban(){
+  const el=document.getElementById("kanban"); el.innerHTML="";
+  const cols=["fault","cause","solution","standard","parameter"];
+  cols.forEach(t=>{
+    const [label]=TYPECOL[t];
+    const col=document.createElement("div");col.className="kcol "+t;
+    col.innerHTML=`<div class="kh">${label}<span class="n">${(byType[t]||[]).length}</span></div>`;
+    (byType[t]||[]).forEach(n=>{
+      const w=EDGES.find(e=>e.target===n.id&&e.type==="caused_by")?.weight||
+              EDGES.find(e=>e.source===n.id&&e.type==="solved_by")?.weight||.5;
+      const card=document.createElement("div");card.className="kcard";
+      card.innerHTML=`<div class="lbl">${n.name}</div>
+        <div class="meta">${n.id}</div>
+        <div class="bar"><i style="width:${Math.round(w*100)}%"></i></div>`;
+      card.title=`权重 ${w}`;
+      col.appendChild(card);
+    });
+    el.appendChild(col);
+  });
+}
+function setView(v){
+  view=v;
+  document.querySelectorAll("#vt button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  document.getElementById("graph").style.display=v==="graph"?"block":"none";
+  document.getElementById("kanban").style.display=v==="kanban"?"block":"none";
+  if(v==="graph"){renderGraph();chart.resize();}else{renderKanban();}
+}
+renderGraph();
+addEventListener("resize",()=>{if(view==="graph"&&chart)chart.resize();});
+
+// ===== ① B4 查询回填(由 ③ 询问触发,回填查询计划 + 到达节点) =====
+function runGraphQuery(){
+  document.getElementById("p-start").textContent="fault_001";
+  document.getElementById("p-edge").textContent="cause/sol";
+  document.getElementById("p-hop").textContent="2";
+  document.getElementById("p-count").textContent="10";
+  document.getElementById("p-paths").textContent="11";
+}
+runGraphQuery();
+
+// ===== ② RAGFlow 式:文档列表 + 解析配置对话框 =====
+function openParseDialog(){document.getElementById("kbgDialog").classList.add("open");}
+function closeParseDialog(){document.getElementById("kbgDialog").classList.remove("open");}
+function pickPtype(el){el.parentElement.querySelectorAll(".p").forEach(p=>p.classList.toggle("on",p===el));}
+const OPT_CFG={
+  "表格":"表格拆行 · chunk_method = table",
+  "图像":"图像 OCR · PaddleOCR / MinerU → Markdown",
+  "向量":"向量入 Milvus · embedding 入向量库,支持语义检索",
+  "因果图":"因果图谱 · 故障/处置 → 因果节点 + 有向边"
+};
+function pickOptTab(el,key){
+  el.parentElement.querySelectorAll("button").forEach(b=>b.classList.toggle("on",b===el));
+  document.getElementById("optBody").innerHTML=`<div class="k">${OPT_CFG[key]}</div>
+    <div class="v">${OPT_CFG[key].split("·")[1]||""}</div>`;
+}
+function reparse(){document.getElementById("ingestMsg").textContent="✓ 已触发重新解析,后台重建向量 + 图谱索引";}
+function confirmParse(){
+  const ptype=document.querySelector("#ptype .p.on .h")?.textContent.trim()||"内置解析器";
+  const routes=[...document.querySelectorAll("#kbgDialog .kbg-sec:last-child .row.on .nm")]
+    .map(e=>e.childNodes[0].textContent.trim());
+  closeParseDialog();
+  document.getElementById("ingestMsg").textContent=
+    "✓ 已保存:"+(ptype)+" · 检索:"+ (routes.length?routes.join(" + "):"默认单路")+" → 双路可检索";
+}
+
+// ===== ③ 命中来源展示(检索入口在 ④ 对话,此处由对话检索触发回填)=====
+const SEARCH_ITEMS=[
+  {cat:"cases",title:"泵站出口压力低处置方案",prev:"当泵站出口压力下降时,首先检查入口过滤器是否堵塞,其次检查泵叶轮磨损…",score:.86},
+  {cat:"faq",title:"知识库录入演示专业文件",prev:"输油管道运行分析与节能优化知识文档 · 为什么泵站优化不能只看总扬程…",score:.81},
+  {cat:"operations",title:"石油管道运行与操作手册",prev:"2. 打开泵入口阀,确认入口压力稳定。3. 按规定打开排气阀…",score:.79},
+  {cat:"cases",title:"末站进站压头偏低处置",prev:"末站进站压力低于 0.35MPa 时,排查上游泵站组合与输量匹配…",score:.74},
+  {cat:"faq",title:"管道结蜡与升温输送",prev:"结蜡层增厚导致摩阻上升,采用升温输送或注入清蜡剂…",score:.68}
+];
+function renderSources(q,count){
+  const k=Math.min(SEARCH_ITEMS.length,Math.max(1,count||3));
+  const box=document.getElementById("sres");
+  if(!q||!q.trim()){box.innerHTML='<div class="empty">在上方 ④ 对话里提问,命中来源会回填到这里</div>';return}
+  box.innerHTML=SEARCH_ITEMS.slice(0,k).map(it=>`<div class="scard"><div class="top">
+      <span class="scat ${it.cat}">${it.cat}</span><span class="stitle">${it.title}</span>
+      <span class="sscore">${it.score.toFixed(2)}</span></div>
+    <div class="sprev">${it.prev}</div>
+    <div class="src"><span>B1 expand</span><span>B2 decompose</span><span>B3 hyde</span><span>RRF</span></div>
+  </div>`).join("");
+}
+renderSources("",3);
+
+// ===== ④ 对话自选路由(LLM auto-route)=====
+const AUTO_DECISIONS=[
+  {q:"泵站出口压力持续下降怎么处置",route:"fault_cause",cls:"graph",
+   reason:"指向具体故障现象,匹配 fault_cause → 走 B4 因果链图查询",
+   causal:{cause:"泵叶轮磨损 · 过滤器堵塞 · 油品粘度升高 · 管道结蜡",
+           sol:"叶轮修复 · 清洗过滤器 · 升温输送 · 清管作业"}},
+  {q:"输油管道的组成结构",route:"equipment_chain",cls:"graph",
+   reason:"设备/部件/泵站的组成关系 → 走 B4 一般图查询",
+   causal:{cause:"pipeline → pump_station → pump 组成链",sol:"references 规范边关联 GB 50253"}},
+  {q:"什么是摩阻系数",route:"retrieve",cls:"retrieve",
+   reason:"概念/知识类 → 走 B1/B2/B3 多路检索",
+   causal:{cause:"候选文档:输油管道运行手册 / 水力计算说明",sol:"RRF 融合 3 路,返回 top3 片段"}}
+];
+let autoOn=true;
+function toggleSwitch(){
+  autoOn=!autoOn;
+  document.getElementById("sw").classList.toggle("on",autoOn);
+  const st=document.getElementById("chatst");
+  st.textContent=autoOn?"已连接":"自动路由关 → 走默认";
+}
+const ROUTE_LABEL={fault_cause:"B4 因果链图",equipment_chain:"B4 一般图",retrieve:"B1B2B3 混合检索",default:"默认单路"};
+const ROUTE_KEY={fault_cause:"graph",equipment_chain:"graph",retrieve:"retrieve",default:"default"};
+function highlightRoute(route){
+  document.querySelectorAll("#pipe .pstep").forEach(s=>s.classList.toggle("hit",s.dataset.r===ROUTE_KEY[route]));
+  const lab=document.getElementById("hitlabel");
+  lab.textContent=ROUTE_LABEL[route]||route;
+  lab.style.color=route==="default"?"var(--violet)":"var(--cyan)";
+}
+function addHistory(q,route){
+  // 横向 3 区块版无独立历史侧栏,历史并入对话消息流;此处仅记录(可后续加回侧栏)
+  // 保留空实现以免 runAutoRoute 报错
+}
+function addUserMsg(text){
+  const m=document.getElementById("msgs");
+  const div=document.createElement("div");div.className="msg user";
+  div.innerHTML=`<div class="bubble"></div><div class="bob">你</div>`;
+  div.querySelector(".bubble").textContent=text;
+  m.appendChild(div);m.scrollTop=m.scrollHeight;
+}
+function sendFromInput(){
+  const input=document.getElementById("aq");
+  const q=input.value.trim();if(!q)return;
+  runAutoRoute(q);
+}
+function runAutoRoute(forcedQ){
+  const q=(forcedQ||document.getElementById("aq").value||"").trim()||"泵站出口压力持续下降怎么处置";
+  const decision=autoOn?AUTO_DECISIONS.find(d=>d.q===q)||AUTO_DECISIONS[0]:
+    {route:"default",reason:"开关关 / LLM 失败 → 默认单路检索",causal:null};
+  const eff=decision;
+  document.getElementById("aq").value=q;
+  addUserMsg(q);
+  highlightRoute(eff.route);
+  addHistory(q,eff.route);
+  addBotMsg(eff.route,ROUTE_KEY[eff.route],eff.reason,eff.causal);
+  // 检索/默认路由 → 回填 ③ 命中来源;图查询路由 → 清空来源(展示因果链而非文档)
+  if(eff.route==="retrieve"||eff.route==="default")renderSources(q,3);
+  else renderSources("",0);
+}
+// 初始演示:预填历史 + 自动走一条 fault_cause
+addHistory("泵站出口压力持续下降怎么处置","fault_cause");
+addHistory("管道输送阻力偏大怎么办","retrieve");
+setTimeout(()=>runAutoRoute("泵站出口压力持续下降怎么处置"),400);
+function addBotMsg(route,cls,reason,causal){
+  const m=document.getElementById("msgs");
+  const div=document.createElement("div");div.className="msg bot";
+  div.innerHTML=`<div class="bob">智</div>
+    <div class="bubble">
+      <div class="route"><span class="rl ${cls}">${route}</span><span class="rr">${reason}</span></div>
+      <div class="stream-body"></div>
+    </div>`;
+  m.appendChild(div);
+  const body=div.querySelector(".stream-body");
+  const cursor=document.createElement("span");cursor.className="cursor";
+
+  // 平滑流式:按固定节奏逐字符消费(模拟 方案.md 步骤4 CHARS_PER_FRAME,视觉匀速)
+  let chunks=[];
+  if(causal){
+    chunks=[`已识别为 ${route} 路由,沿因果链有界遍历(2 跳):`,
+      `原因链:${causal.cause}`,
+      `处置:${causal.sol}`,
+      `建议:优先处理概率最高的根因,复核后提交专家入库以沉淀为长期知识。`];
+  }else{
+    chunks=[`已检索知识库(top3),命中以下片段:`,causal?.cause||"候选文档 3 篇","已按相关度排序,RRF 融合完成。"];
+  }
+  // 每行:把"加粗词"(英文单词/下划线标识)提取出来,逐字打字时完整保留标签不被截断
+  const lines=chunks.map(line=>{
+    const strong=line.split(/(\b[a-z_]{4,}\b|[a-z]+_)/gi);
+    return {plain:line,strong:new Set(strong.filter(t=>/^[a-z_]{4,}$|^[a-z_]+_$|^[a-z_]{2,}_.*/i.test(t)))};
+  });
+  let li=0,ci=0;
+  function typeLine(){
+    if(li>=lines.length){cursor.remove();return;} // 流结束:仅移除光标,不卸载组件(方案.md 步骤3)
+    const L=lines[li],p=document.createElement("p");body.appendChild(p);
+    function step(){
+      if(ci<=L.plain.length){
+        p.innerHTML=L.plain.slice(0,ci).replace(/([a-z_]{4,}|[a-z]+_[a-z]+)/gi,
+          t=>L.strong.has(t)?`<b>${t}</b>`:t);
+        if(ci<L.plain.length) p.appendChild(cursor); // 光标只在打字中、且停在最后这条行尾
+        m.scrollTop=1e6;
+        ci++;setTimeout(step,24); // ~40 字符/秒,匀速打字机
+      }else{li++;ci=0;typeLine();}
+    }
+    step();
+  }
+  typeLine();
+}
+</script>
+</body>
+</html>

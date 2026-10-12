@@ -233,12 +233,32 @@ export interface KnowledgeGraphNode {
   id: string;
   name: string;
   type?: string | null;
+  description?: string;
+  /** PageRank 重要性（0~1，核心实体越大；无预存时后端给基线 0.1） */
+  pagerank?: number;
 }
 
 export interface KnowledgeGraphEdge {
   source: string;
   target: string;
   type?: string | null;
+  weight?: number;
+  /** 边重要性 = 两端点 PageRank 较小者（短板决定） */
+  pagerank?: number;
+}
+
+/** 边向量语义命中（对标 ragflow relation 检索）：query 与因果边描述向量相似度 */
+export interface KnowledgeGraphEdgeHit {
+  description: string;
+  edge_type: string;
+  score: number;
+}
+
+/** 社区摘要向量命中：query 与社区摘要向量相似度 */
+export interface KnowledgeGraphCommunityHit {
+  community_id: string;
+  summary: string;
+  score: number;
 }
 
 export interface KnowledgeGraphQueryPayload {
@@ -260,6 +280,9 @@ export interface KnowledgeGraphQueryPayload {
     };
     reached?: Record<string, { from: string; via: string | null }>;
     path_count?: number;
+    /** 图语义命中（B4 结果附带）：边向量 + 社区向量相似度 */
+    edge_hits?: KnowledgeGraphEdgeHit[];
+    community_hits?: KnowledgeGraphCommunityHit[];
   };
 }
 

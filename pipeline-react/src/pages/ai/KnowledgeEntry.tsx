@@ -37,6 +37,7 @@ import { knowledgeDocumentApi } from '../../api';
 import AnimatedPage from '../../components/common/AnimatedPage';
 import PageHeader from '../../components/common/PageHeader';
 import type { KnowledgeDocument, KnowledgeIngestTask } from '../../types';
+import KnowledgeBase from '../data/KnowledgeBase';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
@@ -583,6 +584,9 @@ export default function KnowledgeEntry() {
           </Card>
         </Col>
       </Row>
+
+      {/* 新设计:图谱 / 专家入库 / 对话自动路由(接 Python agent LangGraph 服务) */}
+      <KnowledgeBase />
 
       <Row gutter={[16, 16]} align="stretch">
         <Col xs={24}>

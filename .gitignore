@@ -79,3 +79,8 @@ _db_backups/
 
 # Claude
 .claude/
+
+# Local agent tooling / test env / runtime data
+.omo/
+pipeline-agent/.test-env/
+pipeline-agent/milvus_lite_data/

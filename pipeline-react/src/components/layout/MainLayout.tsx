@@ -18,6 +18,7 @@ import {
   MenuUnfoldOutlined,
   SettingOutlined,
   BookOutlined,
+  ApartmentOutlined,
   MenuOutlined,
   CloseOutlined,
   DeploymentUnitOutlined,
@@ -70,6 +71,7 @@ const menuItems: MenuProps['items'] = [
         label: <span className={styles.menuLabelWithBadge}>智能对话 <span className={styles.liveBadge}>LIVE</span></span>,
       },
       { key: '/ai/report', icon: <BookOutlined />, label: '智能报告' },
+      { key: '/ai/hub', icon: <ApartmentOutlined />, label: '知识库中枢' },
     ],
   },
 ];

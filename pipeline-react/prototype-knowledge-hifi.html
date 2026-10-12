@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>知识库 · 图谱驱动高保真原型</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0e1a; --bg2:#0f1526; --panel:#121a2e; --panel2:#182238;
+    --line:#243150; --line2:#2e3d5e;
+    --text:#e6edf7; --text2:#8b9bb8; --text3:#5a6a8a;
+    --cyan:#22d3ee; --blue:#3b82f6; --violet:#8b5cf6;
+    --fault:#f43f5e; --cause:#fb923c; --sol:#34d399; --std:#a3e635; --param:#2dd4bf;
+    --accent:linear-gradient(135deg,#22d3ee,#3b82f6);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:radial-gradient(1200px 600px at 70% -10%,#13203a 0%,var(--bg) 55%);
+    color:var(--text);font-family:-apple-system,"PingFang SC",system-ui,sans-serif;min-height:100vh}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 24px 80px}
+  /* header */
+  .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:40px;height:40px;border-radius:11px;background:var(--accent);display:grid;place-items:center;
+    font-weight:800;font-size:18px;color:#04121f;box-shadow:0 6px 22px rgba(34,211,238,.35)}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:.5px}
+  .brand p{font-size:12px;color:var(--text2);margin-top:2px}
+  .badge{font-size:12px;color:var(--text2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:var(--panel)}
+  .badge b{color:var(--cyan)}
+  /* section label */
+  .sec{display:flex;align-items:center;gap:10px;margin:30px 0 14px}
+  .sec .num{font-size:11px;font-weight:700;color:var(--cyan);background:rgba(34,211,238,.12);
+    border:1px solid rgba(34,211,238,.35);border-radius:7px;padding:3px 8px;letter-spacing:1px}
+  .sec h2{font-size:16px;font-weight:600}
+  .sec .hint{font-size:12px;color:var(--text3);margin-left:2px}
+  /* grid layout */
+  .grid{display:grid;grid-template-columns:1.5fr 1fr;gap:18px}
+  .panel{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);
+    border-radius:16px;padding:18px;position:relative;overflow:hidden}
+  .panel::before{content:"";position:absolute;inset:0 0 auto 0;height:1px;
+    background:linear-gradient(90deg,transparent,rgba(34,211,238,.5),transparent)}
+  .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+  .ph .t{font-size:14px;font-weight:600}
+  .ph .t small{display:block;font-size:11px;color:var(--text3);font-weight:400;margin-top:3px}
+  .chip{font-size:11px;color:var(--text2);border:1px solid var(--line2);padding:4px 9px;border-radius:999px}
+  .chip.on{color:#04121f;background:var(--cyan);border-color:transparent;font-weight:600}
+  /* graph area */
+  #graph{width:100%;height:430px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;font-size:11px}
+  .legend span{display:flex;align-items:center;gap:6px;color:var(--text2)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  /* query bar */
+  .qbar{display:flex;gap:10px;margin-bottom:14px}
+  .qbar input,.qbar select{background:var(--bg2);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:10px 13px;font-size:13px;outline:none;flex:1}
+  .qbar select{flex:0 0 170px}
+  .qbar button{background:var(--accent);border:none;color:#04121f;font-weight:700;border-radius:10px;
+    padding:0 20px;cursor:pointer;font-size:13px}
+  .qbar button:active{transform:translateY(1px)}
+  /* plan + reached */
+  .planbox{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 12px}
+  .planbox .item{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:9px 13px;flex:1;min-width:110px}
+  .planbox .item .k{font-size:10px;color:var(--text3);letter-spacing:1px}
+  .planbox .item .v{font-size:14px;font-weight:600;margin-top:3px;color:var(--cyan)}
+  .reached{display:flex;flex-wrap:wrap;gap:7px;max-height:130px;overflow:auto}
+  .tag{font-size:12px;padding:5px 11px;border-radius:8px;border:1px solid var(--line2);
+    background:var(--bg2);color:var(--text2);white-space:nowrap}
+  .tag.cause{border-color:rgba(251,146,60,.5);color:var(--cause)}
+  .tag.sol{border-color:rgba(52,211,153,.5);color:var(--sol)}
+  /* expert ingest */
+  .exprow{display:grid;grid-template-columns:1fr 1fr .7fr 1fr auto;gap:8px;margin-bottom:9px;align-items:center}
+  .exprow input{background:var(--bg2);border:1px solid var(--line);border-radius:9px;padding:9px 11px;
+    color:var(--text);font-size:12px;outline:none}
+  .exprow .del{background:none;border:none;color:var(--fault);cursor:pointer;font-size:15px;padding:6px}
+  .addrow{width:100%;text-align:center;padding:8px;border:1px dashed var(--line2);border-radius:9px;
+    color:var(--text2);cursor:pointer;font-size:12px;margin-top:4px}
+  .addrow:hover{color:var(--cyan);border-color:var(--cyan)}
+  /* search result cards */
+  .sres{display:flex;flex-direction:column;gap:10px;max-height:250px;overflow:auto}
+  .scard{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:13px}
+  .scard .top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .scat{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;background:rgba(59,130,246,.18);color:var(--blue)}
+  .stitle{font-size:13px;font-weight:600;flex:1}
+  .sscore{font-size:11px;color:var(--cyan);font-family:ui-monospace,monospace}
+  .sprev{font-size:12px;color:var(--text2);line-height:1.6}
+  .route{font-size:11px;color:var(--text3);margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+  .route b{color:var(--text2)}
+  .empty{color:var(--text3);font-size:12px;text-align:center;padding:24px}
+  .stat{font-size:11px;color:var(--text3)}
+  .stat b{color:var(--text);font-size:13px}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="brand">
+      <div class="logo">脉</div>
+      <div><h1>知识库中枢 · Knowledge Hub</h1><p>油气管网数字孪生智能分析与决策平台</p></div>
+    </div>
+    <div class="badge">图谱节点 <b id="b-n">14</b> · 因果边 <b id="b-e">14</b> · LLM-in-the-loop <b>ON</b></div>
+  </div>
+
+  <!-- ① 图谱查询 B4 -->
+  <div class="sec"><span class="num">①</span><h2>图谱查询 · B4 LLM-in-the-loop 有界遍历</h2>
+    <span class="hint">从故障节点沿 caused_by→solved_by 因果链有界 BFS，LLM 决策起点/边/跳数</span></div>
+  <div class="grid">
+    <div class="panel">
+      <div class="ph"><div class="t">因果链拓扑<small>力导向图 · 拖拽/缩放 · 悬停看属性</small></div>
+        <div style="display:flex;gap:7px">
+          <span class="chip on">cause</span><span class="chip on">solution</span><span class="chip">references</span>
+        </div></div>
+      <div id="graph"></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--fault)"></i>fault 故障</span>
+        <span><i class="dot" style="background:var(--cause)"></i>cause 原因</span>
+        <span><i class="dot" style="background:var(--sol)"></i>solution 处置</span>
+        <span><i class="dot" style="background:var(--std)"></i>standard 规范</span>
+        <span><i class="dot" style="background:var(--param)"></i>parameter 参数</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="t">查询计划<small>LLM 决策 · 失败降级默认</small></div></div>
+      <div class="qbar">
+        <input id="gq" value="泵站出口压力下降" placeholder="输入故障描述">
+        <button onclick="runGraphQuery()">查询</button>
+      </div>
+      <div class="planbox">
+        <div class="item"><div class="k">起点</div><div class="v" id="p-start">fault_001</div></div>
+        <div class="item"><div class="k">边类型</div><div class="v" id="p-edge">cause/solution</div></div>
+        <div class="item"><div class="k">最大跳数</div><div class="v" id="p-hop">2</div></div>
+      </div>
+      <div class="stat">到达节点 <b id="p-count">10</b> · 路径数 <b id="p-paths">11</b></div>
+      <div style="margin:12px 0 8px;font-size:12px;color:var(--text2)">因果链展开</div>
+      <div class="reached" id="reached"></div>
+    </div>
+  </div>
+
+  <!-- ② 专家知识入库 A 类 -->
+  <div class="sec"><span class="num">②</span><h2>专家知识入库 · A 类结构化直入</h2>
+    <span class="hint">故障→原因→处置 直接生成因果链节点/边，命中 expert graph，无需 LLM 抽取（LLM 抽取为可插拔开关）</span></div>
+  <div class="grid">
+    <div class="panel">
+      <div class="ph"><div class="t">因果知识录入<small>动态增删行</small></div>
+        <button onclick="addExpertRow()" style="background:none;border:1px solid var(--line2);color:var(--cyan);
+          border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px">＋ 加一条</button></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr .7fr 1fr auto;gap:8px;font-size:10px;color:var(--text3);
+        margin-bottom:7px;letter-spacing:1px">
+        <span>故障</span><span>原因</span><span>概率</span><span>处置</span><span></span></div>
+      <div id="expertRows">
+        <div class="exprow"><input value="泵站出口压力下降"><input value="泵叶轮磨损"><input type="number" step="0.1" value="0.35"><input value="叶轮修复"><button class="del" onclick="this.parentElement.remove()">×</button></div>
+        <div class="exprow"><input value="泵站出口压力下降"><input value="过滤器堵塞"><input type="number" step="0.1" value="0.30"><input value="清洗过滤器"><button class="del" onclick="this.parentElement.remove()">×</button></div>
+      </div>
+      <button onclick="ingestExpert()" style="width:100%;margin-top:8px;background:var(--accent);border:none;
+        color:#04121f;font-weight:700;padding:11px;border-radius:10px;cursor:pointer;font-size:13px">
+        入库（POST /knowledge/ingest）</button>
+      <div id="ingestMsg" class="stat" style="margin-top:10px;min-height:16px"></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="t">入库回执<small>expert_nodes / expert_edges</small></div></div>
+      <div class="planbox" style="margin:0">
+        <div class="item"><div class="k">新增节点</div><div class="v" id="i-n">—</div></div>
+        <div class="item"><div class="k">新增边</div><div class="v" id="i-e">—</div></div>
+        <div class="item"><div class="k">doc_id</div><div class="v" id="i-d">—</div></div>
+      </div>
+      <div class="stat" id="i-msg" style="margin-top:12px">尚未入库</div>
+    </div>
+  </div>
+
+  <!-- ③ 多路检索 B1/B2/B3 -->
+  <div class="sec"><span class="num">③</span><h2>多路检索 · B1 扩召回 / B2 分解 / B3 HyDE</h2>
+    <span class="hint">RRF 秩融合去重，低置信触发 HITL；开关全关时逐字节回退单路</span></div>
+  <div class="grid">
+    <div class="panel">
+      <div class="ph"><div class="t">检索<small>topK 可调</small></div>
+        <div class="qbar" style="margin:0">
+          <input id="sq" value="管道输送阻力偏大怎么办" placeholder="输入问题">
+          <input id="sk" type="number" value="3" style="flex:0 0 64px">
+          <button onclick="runSearch()">检索</button>
+        </div></div>
+      <div class="sres" id="sres"></div>
+    </div>
+    <div class="panel">
+      <div class="ph"><div class="t">路由 trace<small>决策 / 质量 / 图谱分支</small></div></div>
+      <div id="route" class="route" style="border:none;margin:0;padding:0">
+        <b>多路编排</b><br>
+        B1 横向扩召回 → 候选池 RRF(k=60) 融合<br>
+        B2 纵向分解 → 子问题各自扩召回<br>
+        B3 HyDE → 假想答案并入候选<br>
+        低置信(&lt;0.5) → HITL 弹窗补全<br>
+        <span style="color:var(--sol)">✓ 全关时回退单查询（逐字节一致）</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 真实数据（fault_001 因果子图，来自 pipeline-agent 图谱构建器）=====
+const NODES=[
+ {id:"fault_001",name:"泵站出口压力持续下降",type:"fault"},
+ {id:"cause_001",name:"泵叶轮磨损",type:"cause"},
+ {id:"cause_002",name:"过滤器堵塞",type:"cause"},
+ {id:"cause_003",name:"油品粘度升高",type:"cause"},
+ {id:"cause_004",name:"管道结蜡",type:"cause"},
+ {id:"sol_001",name:"清洗过滤器",type:"solution"},
+ {id:"sol_002",name:"叶轮修复",type:"solution"},
+ {id:"sol_003",name:"升温输送",type:"solution"},
+ {id:"sol_004",name:"清管作业",type:"solution"},
+ {id:"sol_005",name:"降低流速",type:"solution"},
+ {id:"sol_006",name:"注入清蜡剂",type:"solution"},
+ {id:"std_gb50253",name:"输油管道工程设计规范",type:"standard"},
+ {id:"param_outlet_pressure",name:"outlet_pressure",type:"parameter"},
+ {id:"param_flow_rate",name:"flow_rate",type:"parameter"}
+];
+const EDGES=[
+ {source:"fault_001",target:"cause_001",type:"caused_by",weight:.35},
+ {source:"fault_001",target:"cause_002",type:"caused_by",weight:.30},
+ {source:"fault_001",target:"cause_003",type:"caused_by",weight:.20},
+ {source:"fault_001",target:"cause_004",type:"caused_by",weight:.15},
+ {source:"cause_001",target:"sol_002",type:"solved_by",weight:.9},
+ {source:"cause_002",target:"sol_001",type:"solved_by",weight:.85},
+ {source:"cause_003",target:"sol_003",type:"solved_by",weight:.7},
+ {source:"cause_003",target:"sol_005",type:"solved_by",weight:.5},
+ {source:"cause_004",target:"sol_004",type:"solved_by",weight:.75},
+ {source:"cause_004",target:"sol_006",type:"solved_by",weight:.4},
+ {source:"fault_001",target:"param_outlet_pressure",type:"affects",weight:1},
+ {source:"fault_001",target:"param_flow_rate",type:"affects",weight:.6},
+ {source:"std_gb50253",target:"fault_001",type:"references",weight:.5},
+ {source:"sol_002",target:"std_gb50253",type:"references",weight:.4}
+];
+const C={fault:"#f43f5e",cause:"#fb923c",solution:"#34d399",standard:"#a3e635",parameter:"#2dd4bf",
+  pipeline:"#3b82f6",pump_station:"#60a5fa",pump:"#38bdf8",oil_property:"#f59e0b"};
+
+const chart=echarts.init(document.getElementById("graph"),null,{renderer:"canvas"});
+function renderGraph(){
+  chart.setOption({
+    backgroundColor:"transparent",
+    tooltip:{trigger:"item",backgroundColor:"#182238",borderColor:"#2e3d5e",
+      textStyle:{color:"#e6edf7",fontSize:12},formatter:p=>
+        p.dataType==='node'?`${p.data.name}<br/>类型 ${p.data.type}`:
+        `${p.data.source} → ${p.data.target}<br/>${p.data.type}`},
+    series:[{
+      type:"graph",layout:"force",roam:true,draggable:true,
+      edgeSymbol:["none","arrow"],
+      force:{repulsion:260,edgeLength:90,gravity:.08},
+      lineStyle:{color:"#2e3d5e",width:1.4,curveness:.15,opacity:.85},
+      label:{show:true,color:"#e6edf7",fontSize:11,position:"right"},
+      emphasis:{focus:"adjacency",lineStyle:{width:3}},
+      data:NODES.map(n=>({
+        ...n,symbolSize:n.type==="fault"?54:n.type==="cause"?40:n.type==="solution"?36:26,
+        itemStyle:{color:C[n.type]||"#8b9bb8",
+          shadowBlur:n.type==="fault"?28:14,shadowColor:C[n.type]}
+      })),
+      links:EDGES.map(e=>({...e,lineStyle:{color:
+        e.type==="solved_by"?"rgba(52,211,153,.55)":
+        e.type==="caused_by"?"rgba(251,146,60,.55)":"rgba(163,230,53,.35)"}}))
+    }]
+  });
+}
+renderGraph();
+addEventListener("resize",()=>chart.resize());
+
+// ===== ① B4 查询回填 =====
+function runGraphQuery(){
+  document.getElementById("p-start").textContent="fault_001";
+  document.getElementById("p-edge").textContent="cause / solution";
+  document.getElementById("p-hop").textContent="2";
+  const reached=["cause_001","cause_002","cause_003","cause_004","sol_001","sol_002","sol_003","sol_004","sol_005","sol_006"];
+  document.getElementById("p-count").textContent=reached.length;
+  document.getElementById("p-paths").textContent=reached.length+1;
+  const box=document.getElementById("reached");box.innerHTML="";
+  const nm=Object.fromEntries(NODES.map(n=>[n.id,n.name]));
+  reached.forEach(id=>{
+    const t=NORMALTYPE[id]||(NODES.find(n=>n.id===id)||{}).type;
+    const sp=document.createElement("span");
+    sp.className="tag "+(t==="cause"?"cause":t==="solution"?"sol":"");
+    sp.textContent=(nm[id]||id)+" · "+(t==="solution"?"处置":"原因");
+    box.appendChild(sp);
+  });
+}
+const NORMALTYPE={};
+NODES.forEach(n=>NORMALTYPE[n.id]=n.type);
+runGraphQuery();
+
+// ===== ② A 类入库 =====
+function addExpertRow(){
+  const d=document.createElement("div");d.className="exprow";
+  d.innerHTML=`<input placeholder="故障"><input placeholder="原因"><input type="number" step="0.1" min="0" max="1" placeholder="0.5"><input placeholder="处置"><button class="del" onclick="this.parentElement.remove()">×</button>`;
+  document.getElementById("expertRows").appendChild(d);
+}
+function ingestExpert(){
+  const rows=[...document.querySelectorAll("#expertRows .exprow")];
+  const items=rows.filter(r=>r.children[0].value.trim()).map(r=>({
+    fault:r.children[0].value.trim(),cause:r.children[1].value.trim()||null,
+    prob:r.children[2].value?+r.children[2].value:null,solution:r.children[3].value.trim()||null}));
+  const nodes=items.length+items.length+1, edges=items.length*2;
+  document.getElementById("i-n").textContent=nodes;
+  document.getElementById("i-e").textContent=edges;
+  document.getElementById("i-d").textContent="ingest-"+Math.random().toString(16).slice(2,10);
+  document.getElementById("i-msg").textContent=`✓ success=true · chunk_count=1 · llm_extracted=false · hitl_triggered=false`;
+  document.getElementById("ingestMsg").textContent="已提交 "+items.length+" 条因果项 → 新增 "+nodes+" 节点 / "+edges+" 边";
+}
+
+// ===== ③ 多路检索 =====
+function runSearch(){
+  const q=document.getElementById("sq").value;
+  const items=[
+    {cat:"cases",title:"泵站出口压力低处置方案",prev:"当泵站出口压力下降时，首先检查入口过滤器是否堵塞，其次检查泵叶轮磨损…",score:.0049},
+    {cat:"faq",title:"知识库录入演示专业文件",prev:"输油管道运行分析与节能优化知识文档 · 为什么泵站优化不能只看总扬程…",score:.0048},
+    {cat:"operations",title:"石油管道运行与操作手册",prev:"2. 打开泵入口阀，确认入口压力稳定。3. 按规定打开排气阀…",score:.0048}
+  ].filter(()=>q.trim());
+  const box=document.getElementById("sres");
+  if(!items.length){box.innerHTML='<div class="empty">未检索到相关内容</div>';return}
+  box.innerHTML=items.map(it=>`<div class="scard"><div class="top">
+      <span class="scat">${it.cat}</span><span class="stitle">${it.title}</span>
+      <span class="sscore">${it.score.toFixed(4)}</span></div>
+    <div class="sprev">${it.prev}</div></div>`).join("");
+}
+runSearch();
+</script>
+</body>
+</html>
