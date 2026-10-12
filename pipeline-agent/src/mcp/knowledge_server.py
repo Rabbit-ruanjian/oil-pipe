@@ -74,6 +74,57 @@ class KnowledgeMCPServer(MCPServer):
                     {"query": "Lookup equipment chain", "response_format": "contract"},
                 ],
             ),
+            MCPToolDefinition(
+                name="process_long_document",
+                description=(
+                    "Distill a long document's six relation dimensions into Graph RAG: LLM extracts "
+                    "fault-cause-solution chains (with importance), cross-fault shared relations, "
+                    "equipment links, standard references, step order, and knowledge units; upserts "
+                    "into knowledge graph, auto-ingests unregistered docs (md + vectors + doc-graph "
+                    "snapshot), refreshes PageRank/edge vectors/community vectors, verifies retrieval."
+                ),
+                input_schema={
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "Full document text (markdown/plain).",
+                        },
+                        "title": {
+                            "type": "string",
+                            "description": "Document title (default: 未命名文档).",
+                        },
+                        "doc_id": {
+                            "type": "string",
+                            "description": (
+                                "Target document id (optional). Unregistered ids are auto-ingested "
+                                "(md saved + vectors + doc-graph snapshot); the resolved doc_id is "
+                                "returned in the result. Omit to hash from title."
+                            ),
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "Document category for auto-ingest: cases/standards/operations/formulas/faq (default: cases).",
+                        },
+                        "auto_refresh": {
+                            "type": "boolean",
+                            "description": "Auto-refresh 3-layer structure (default true).",
+                        },
+                    },
+                    "required": ["content"],
+                },
+                input_examples=[
+                    {
+                        "content": "# 故障报告\n## 故障A：X\n原因：Y(0.8)；Z(0.5)。\n处置：W(高)。\n说明：故障A与故障B共享根因Y。",
+                        "title": "设备故障报告",
+                    },
+                    {
+                        "content": "…年度检修报告全文…",
+                        "title": "某输油管道 2025 年度检修运行分析报告",
+                        "doc_id": "465e9dd71e50",
+                    },
+                ],
+            ),
         ]
         self._resource_map = self._load_resources()
         self._resources = [
@@ -151,6 +202,21 @@ class KnowledgeMCPServer(MCPServer):
                 result = get_graph_agent().execute(query_text, query_type="equipment_chain")
                 if wants_contract(args):
                     result = build_result_contract("graph_agent", result)
+                return MCPToolCallResult(ok=True, content=result)
+            if tool_name == "process_long_document":
+                # 长文本 → LLM 六维关系蒸馏进 Graph RAG（因果链+共享+设备+标准+步骤+知识点
+                # → 未注册文档自动入库 → 入图 → 三层刷新 → 检索验证）
+                from src.tools.distill_long_document import process_long_document
+
+                result = process_long_document(
+                    content=str(args.get("content") or ""),
+                    title=str(args.get("title") or "未命名文档"),
+                    doc_id=args.get("doc_id") or None,
+                    category=str(args.get("category") or "cases"),
+                    auto_refresh=bool(args.get("auto_refresh", True)),
+                )
+                if wants_contract(args):
+                    result = build_result_contract("distill_long_document", result)
                 return MCPToolCallResult(ok=True, content=result)
             return MCPToolCallResult(ok=False, content=None, error=f"unsupported tool: {tool_name}")
         except Exception as exc:  # noqa: BLE001

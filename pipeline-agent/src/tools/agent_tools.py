@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from langchain_core.tools import tool
 
@@ -96,6 +96,34 @@ def plan_complex_task(task_description: str) -> str:
         return f"调用失败: plan_complex_task: {exc}"
 
 
+@tool
+def process_long_document(
+    content: str,
+    title: str = "未命名文档",
+    doc_id: Optional[str] = None,
+    category: str = "cases",
+) -> str:
+    """把长文档自动分析六类关系并蒸馏进知识图谱：LLM 抽取故障-原因(带 importance)-处置因果链、
+    跨故障共享关系（共享根因/共享处置/强相关）、设备链路（installed/transports/contains）、
+    标准引用（specifies）、步骤顺序、知识点概念，入图并刷新三层结构
+    （PageRank/边向量/社区向量），最后验证可检索命中。
+    用于"丢一份长 MD/文本进来，自动建图谱 + 存向量 + 可检索"的全链路。
+    doc_id：可选，显式指定目标文档 ID（把关系补进已入库文档的图）；未注册的 doc_id 会自动入库
+    （存 .md + 向量 + 文档图快照），缺省按 title 哈希。
+    category：自动入库时的文档分类（cases/standards/operations/formulas/faq），默认 cases。
+    超长文档（>12000 字符）建议分段调用。"""
+    import json
+
+    try:
+        from src.tools.distill_long_document import process_long_document as _distill
+
+        result = _distill(content=content, title=title, auto_refresh=True, doc_id=doc_id, category=category)
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("process_long_document failed: {}", exc)
+        return f"调用失败: process_long_document: {exc}"
+
+
 REACT_TOOLS = [
     query_database,
     hydraulic_calculation,
@@ -105,6 +133,7 @@ REACT_TOOLS = [
     query_equipment_chain,
     run_sensitivity_analysis,
     plan_complex_task,
+    process_long_document,
 ]
 
 TOOL_NAME_TO_TOOL = {tool.name: tool for tool in REACT_TOOLS}
@@ -186,6 +215,21 @@ TOOL_REGISTRY: Dict[str, Dict[str, Any]] = {
             {"query": "管道允许压力偏差的相关标准条款"},
             {"query": "泵站运维巡检频次要求"},
             {"query": "Relevant standard clauses for allowable pipeline pressure deviation"},
+        ],
+    },
+    "process_long_document": {
+        "description": "把长文档的六类关系（故障因果链/跨故障共享/设备链路/标准引用/步骤顺序/知识点）自动分析并蒸馏进知识图谱，入图并刷新三层结构（PageRank/边向量/社区），未注册文档自动入库，验证可检索。Distill a long document's six relation dimensions into the knowledge graph with auto-ingest for unregistered docs.",
+        "keywords": [
+            "长文档", "蒸馏", "抽取", "因果链", "入图", "知识库构建", "共享根因", "联动处置",
+            "设备链路", "标准引用", "步骤顺序", "知识点", "自动入库",
+            "document", "distill", "extract", "causal", "ingest", "graph", "shared",
+            "equipment", "standards", "sequential", "auto-ingest",
+        ],
+        "category": "knowledge",
+        "defer_loading": True,
+        "usage_frequency": 0.35,
+        "input_examples": [
+            {"content": "# 故障报告\n## 故障A：X\n原因：Y(0.8)；Z(0.5)。\n处置：W(高)。\n说明：故障A与故障B共享根因Y、联动处置W；1号泵站经某输油管道输送介质，GB 50350 约束泵站设计。", "title": "设备故障报告"},
         ],
     },
     "query_equipment_chain": {

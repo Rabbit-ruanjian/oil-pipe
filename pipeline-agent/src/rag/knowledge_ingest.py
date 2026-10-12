@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -109,7 +110,14 @@ _MAX_LLM_TEXT_CHARS = 12000
 
 
 def normalize_expert_knowledge(
-    raw_items: list[dict[str, Any]], *, source_doc_id: str
+    raw_items: list[dict[str, Any]],
+    *,
+    source_doc_id: str,
+    shared_relations: list[dict[str, Any]] | None = None,
+    equipment: list[dict[str, Any]] | None = None,
+    standards: list[dict[str, Any]] | None = None,
+    steps: list[dict[str, Any]] | None = None,
+    knowledge_units: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """归一化 expert_knowledge 字段组。
 
@@ -117,8 +125,22 @@ def normalize_expert_knowledge(
       1) 因果链形态: {fault, cause, prob, solution, cost, downtime}
       2) 嵌套形态:   {fault, causes: [{cause, prob, solutions: [{solution, cost, downtime}]}]}
 
+    shared_relations（可选）：跨故障共享关系，元素形如
+      {relation: "shared_cause|shared_solution|related_fault",
+       faults: ["故障A","故障B"], shared_cause/shared_solution/note: "说明"}
+    会归一化为连接两个 fault 节点的 SHARED_CAUSE/SHARED_SOLUTION/RELATED_FAULT 边，
+    把报告里"跨故障共性"（共享根因/联动处置/同源链）落成图谱。
+
+    六维扩展（蒸馏路径，kwarg 全默认 None → 不传时不产生任何新节点/边，图谱结构逐字节同现状）：
+      equipment（设备链路）: [{name, kind: pipeline|pump_station|pump|other,
+                               links: [{relation: installed|transports|contains, target, note}]}]
+      standards（标准引用）: [{name, references: [对象名], note}]
+      steps（步骤顺序）:     [{step, action, next_step}]（现有 prompt 已抽但原被丢弃，此处置序序边）
+      knowledge_units（知识点）: [{type, title, content, importance}]
+    新节点 slug：eq::/std::/stp::/ku::（md5 尾 12，确定性幂等），未知引用目标按 ent:: 占位 CONCEPT。
+
     返回按 fault 分组、去重后的结构（同 fault+cause+solution 去重），
-    供 distill_expert_to_document_graph 直接消费。
+    节点/边可直接供 distill_expert_to_document_graph 消费。
     """
 
     by_fault: dict[str, dict[str, Any]] = {}
@@ -133,7 +155,7 @@ def normalize_expert_knowledge(
     for item in raw_items or []:
         if not isinstance(item, dict):
             continue
-        fault_name = str(item.get("fault") or "").strip()
+        fault_name = _clean_entity_name(str(item.get("fault") or ""))
         if not fault_name:
             continue
 
@@ -188,7 +210,11 @@ def normalize_expert_knowledge(
                     continue
                 solutions.append({"solution": sol_name, "cost": sol_cost, "downtime": sol_downtime})
 
-            fault_entry["causes"].append({"cause": cause_name, "prob": prob, "solutions": solutions})
+            cause_rec: dict[str, Any] = {"cause": cause_name, "prob": prob, "solutions": solutions}
+            # 客户重要性权重（LLM 抽出的 importance）透传给下游蒸馏进边属性
+            if cause_entry.get("importance") is not None:
+                cause_rec["importance"] = _clamp_probability(cause_entry.get("importance"))
+            fault_entry["causes"].append(cause_rec)
 
     # 去重 + 生成稳定节点 ID
     seen_nodes: set[str] = set()
@@ -210,13 +236,14 @@ def normalize_expert_knowledge(
                 seen_sol_keys.add(sol_key)
                 deduped_solutions.append(sol)
 
-            deduped_causes.append(
-                {
-                    "cause": cause_entry["cause"],
-                    "prob": cause_entry["prob"],
-                    "solutions": deduped_solutions,
-                }
-            )
+            deduped_cause: dict[str, Any] = {
+                "cause": cause_entry["cause"],
+                "prob": cause_entry["prob"],
+                "solutions": deduped_solutions,
+            }
+            if cause_entry.get("importance") is not None:
+                deduped_cause["importance"] = cause_entry["importance"]
+            deduped_causes.append(deduped_cause)
         fault_entry["causes"] = deduped_causes
 
         fault_id = _slug(fault_name, "fault")
@@ -258,6 +285,7 @@ def normalize_expert_knowledge(
                         "namespace": "expert",
                         "source_doc_id": source_doc_id,
                         "probability": cause_entry["prob"],
+                        **({"importance": cause_entry["importance"]} if cause_entry.get("importance") is not None else {}),
                     },
                 }
             )
@@ -291,6 +319,7 @@ def normalize_expert_knowledge(
                         "namespace": "expert",
                         "relation": "caused_by",
                         "probability": cause_entry["prob"],
+                        **({"importance": cause_entry["importance"]} if cause_entry.get("importance") is not None else {}),
                         "source_doc_id": source_doc_id,
                     },
                 }
@@ -312,9 +341,380 @@ def normalize_expert_knowledge(
                     }
                 )
 
-    return {
+    # 跨故障共享关系（G-E7 报告核心价值）：把 shared_relations 归一化成连接两个
+    # fault 节点的边。fault 名 → fault_id 的映射已由上面的 by_fault 建好，
+    # 同名故障（_clean_entity_name 归一）会落到同一节点，跨故障边自动成立。
+    shared_added = 0
+    if shared_relations:
+        name_to_fault_id = {name: entry["fault_id"] for name, entry in by_fault.items()}
+        # 大小写/全半角不敏感的反查表
+        reverse = {_clean_entity_name(str(n)).casefold(): fid for n, fid in name_to_fault_id.items()}
+        seen_shared: set[tuple[str, str, str]] = set()
+        for rel in shared_relations:
+            if not isinstance(rel, dict):
+                continue
+            relation = str(rel.get("relation") or "related_fault").strip()
+            etype = {
+                "shared_cause": EdgeType.SHARED_CAUSE.value,
+                "shared_solution": EdgeType.SHARED_SOLUTION.value,
+                "related_fault": EdgeType.RELATED_FAULT.value,
+            }.get(relation, EdgeType.RELATED_FAULT.value)
+            names = rel.get("faults") or []
+            if not isinstance(names, list):
+                continue
+            # 把每个 fault 名解析到 fault_id；未命中该 fault 的（新故障）补一个占位节点
+            resolved: list[str] = []
+            for raw_name in names:
+                cn = _clean_entity_name(str(raw_name))
+                fid = name_to_fault_id.get(cn) or reverse.get(cn.casefold())
+                if fid is None:
+                    fid = _slug(cn, "fault")
+                    by_fault[cn] = {"fault": cn, "fault_id": fid, "causes": []}
+                    name_to_fault_id[cn] = fid
+                    reverse[cn.casefold()] = fid
+                    expert_nodes.append(
+                        {
+                            "id": fid,
+                            "type": NodeType.FAULT.value,
+                            "name": cn,
+                            "description": f"故障：{cn}（跨故障关系占位，因果链需人工补全）",
+                            "properties": {"namespace": "expert", "source_doc_id": source_doc_id},
+                        }
+                    )
+                resolved.append(fid)
+            if len(resolved) < 2:
+                continue
+            # 两两连边（去重 + 去掉自环）
+            for i in range(len(resolved)):
+                for j in range(i + 1, len(resolved)):
+                    a, b = resolved[i], resolved[j]
+                    if a == b:
+                        continue
+                    key = (a, b, etype)
+                    if key in seen_shared:
+                        continue
+                    seen_shared.add(key)
+                    note = str(
+                        rel.get("shared_cause")
+                        or rel.get("shared_solution")
+                        or rel.get("note")
+                        or ""
+                    ).strip()
+                    expert_edges.append(
+                        {
+                            "source_id": a,
+                            "target_id": b,
+                            "type": etype,
+                            "weight": 1.0,
+                            "properties": {
+                                "namespace": "expert",
+                                "relation": etype,
+                                "shared_cause": str(rel.get("shared_cause") or "") or None,
+                                "shared_solution": str(rel.get("shared_solution") or "") or None,
+                                "note": note or None,
+                                "source_doc_id": source_doc_id,
+                            },
+                        }
+                    )
+                    shared_added += 1
+
+    # ------------------------------------------------------------------
+    # 六维扩展（蒸馏路径）：设备链路 / 标准引用 / 步骤顺序 / 知识点
+    # 全部 keyword-only 默认 None → 不传时不产生任何新节点/边，输出与旧契约逐字节一致；
+    # 新节点 slug eq::/std::/stp::/ku::（_slug 确定性，重跑天然幂等）；
+    # 未知引用目标按 ent:: 占位 CONCEPT（沿用上面 shared_relations 的占位模式，语义由 dense 向量兜底）。
+    # ------------------------------------------------------------------
+    _existing_node_ids = {n["id"] for n in expert_nodes}
+    equipment_names: list[str] = []
+    standard_names: list[str] = []
+    step_names: list[str] = []
+    knowledge_names: list[str] = []
+    eq_nodes = eq_edges = std_nodes = std_edges = step_nodes = step_edges = ku_nodes = ku_edges = 0
+
+    def _placeholder_concept(name: str, prefix: str, note: str) -> str:
+        """引用目标在批次内未命中时补占位 CONCEPT 节点，返回节点 id。"""
+        pid = _slug(name, prefix)
+        if pid not in _existing_node_ids:
+            _existing_node_ids.add(pid)
+            expert_nodes.append(
+                {
+                    "id": pid,
+                    "type": NodeType.CONCEPT.value,
+                    "name": name,
+                    "description": f"关联实体：{name}（{note}占位，语义需人工补全）",
+                    "properties": {"namespace": "expert", "note": note, "source_doc_id": source_doc_id},
+                }
+            )
+        return pid
+
+    # 批次内设备名反查表（供标准引用目标解析复用），大小写不敏感
+    eq_name_to_id: dict[str, str] = {}
+    if equipment:
+        _EQ_TYPE_MAP = {
+            "pipeline": NodeType.PIPELINE,
+            "pump_station": NodeType.PUMP_STATION,
+            "pump": NodeType.PUMP,
+        }
+        _EQ_LINK_MAP = {
+            "installed": EdgeType.INSTALLED,
+            "transports": EdgeType.TRANSPORTS,
+            "contains": EdgeType.CONTAINS,
+        }
+        seen_eq_edges: set[tuple[str, str, str]] = set()
+        for item in equipment:
+            if not isinstance(item, dict):
+                continue
+            name = _clean_entity_name(str(item.get("name") or ""))
+            if not name:
+                continue
+            kind = str(item.get("type") or item.get("kind") or "").strip().lower()
+            etype = _EQ_TYPE_MAP.get(kind, NodeType.CONCEPT)  # "other"/未知类型 → 落 CONCEPT
+            eq_id = _slug(name, "eq")
+            if eq_id not in _existing_node_ids:
+                _existing_node_ids.add(eq_id)
+                expert_nodes.append(
+                    {
+                        "id": eq_id,
+                        "type": etype.value,
+                        "name": name,
+                        "description": f"设备：{name}" if kind in ("", "other") else f"设备：{name}（{kind}）",
+                        "properties": {
+                            "namespace": "expert",
+                            "equipment_kind": kind or None,
+                            "source_doc_id": source_doc_id,
+                        },
+                    }
+                )
+                eq_nodes += 1
+            eq_name_to_id.setdefault(name.casefold(), eq_id)
+            equipment_names.append(name)
+            # 设备链路：只接受白名单 relation（installed/transports/contains），
+            # 未知 relation 值直接丢弃（不猜边）；未知 target 名补 eq:: 占位节点。
+            links = item.get("links")
+            if not isinstance(links, list):
+                links = [links] if links else []
+            for link in links:
+                if not isinstance(link, dict):
+                    continue
+                relation = str(link.get("relation") or "").strip().lower()
+                edge_type = _EQ_LINK_MAP.get(relation)
+                target = _clean_entity_name(str(link.get("target") or ""))
+                if edge_type is None or not target:
+                    continue
+                target_id = eq_name_to_id.get(target.casefold())
+                if target_id is None:
+                    target_id = _placeholder_concept(target, "eq", "设备链路")
+                key = (eq_id, target_id, relation)
+                if key in seen_eq_edges:
+                    continue
+                seen_eq_edges.add(key)
+                expert_edges.append(
+                    {
+                        "source_id": eq_id,
+                        "target_id": target_id,
+                        "type": edge_type.value,
+                        "weight": 1.0,
+                        "properties": {
+                            "namespace": "expert",
+                            "relation": relation,
+                            "note": str(link.get("note") or "").strip() or None,
+                            "source_doc_id": source_doc_id,
+                        },
+                    }
+                )
+                eq_edges += 1
+
+    # 标准引用：std::<name> STANDARD 节点，向 references 目标出 SPECIFIES 边；
+    # 目标解析顺序：批次内设备名 → 故障名（含 shared 占位）→ ent:: 占位 CONCEPT。
+    if standards:
+        fault_lookup = {n.casefold(): e["fault_id"] for n, e in by_fault.items()}
+        seen_std_edges: set[tuple[str, str]] = set()
+        for item in standards:
+            if not isinstance(item, dict):
+                continue
+            sname = _clean_entity_name(str(item.get("name") or ""))
+            if not sname:
+                continue
+            note = str(item.get("note") or "").strip()
+            std_id = _slug(sname, "std")
+            if std_id not in _existing_node_ids:
+                _existing_node_ids.add(std_id)
+                expert_nodes.append(
+                    {
+                        "id": std_id,
+                        "type": NodeType.STANDARD.value,
+                        "name": sname,
+                        "description": f"标准：{sname}" + (f"（{note}）" if note else ""),
+                        "properties": {
+                            "namespace": "expert",
+                            "scope": note or None,
+                            "source_doc_id": source_doc_id,
+                        },
+                    }
+                )
+                std_nodes += 1
+            standard_names.append(sname)
+            refs = item.get("references")
+            if refs is None:
+                refs = item.get("applies_to")
+            if not isinstance(refs, list):
+                refs = [refs] if refs else []
+            for ref in refs:
+                target = _clean_entity_name(str(ref or ""))
+                if not target:
+                    continue
+                target_id = eq_name_to_id.get(target.casefold()) or fault_lookup.get(target.casefold())
+                if target_id is None:
+                    target_id = _placeholder_concept(target, "ent", "标准引用")
+                key = (std_id, target_id)
+                if key in seen_std_edges:
+                    continue
+                seen_std_edges.add(key)
+                expert_edges.append(
+                    {
+                        "source_id": std_id,
+                        "target_id": target_id,
+                        "type": EdgeType.SPECIFIES.value,
+                        "weight": 1.0,
+                        "properties": {
+                            "namespace": "expert",
+                            "relation": "specifies",
+                            "note": note or None,
+                            "source_doc_id": source_doc_id,
+                        },
+                    }
+                )
+                std_edges += 1
+
+    # 步骤顺序：stp::<action> CONCEPT 节点（properties.order），
+    # 相邻步骤出 REFERENCES 边（relation=sequential_step，文档图 sequential_section 惯例）。
+    if steps:
+        ordered_steps: list[tuple[float, str, str]] = []
+        for idx, item in enumerate(steps):
+            if not isinstance(item, dict):
+                continue
+            action = _clean_entity_name(str(item.get("action") or ""))
+            if not action:
+                continue
+            order_raw = item.get("step")
+            if not isinstance(order_raw, (int, float)):
+                order_raw = item.get("order")
+            try:
+                order = float(order_raw)
+            except (TypeError, ValueError):
+                order = float(idx + 1)
+            stp_id = _slug(action, "stp")
+            if stp_id not in _existing_node_ids:
+                _existing_node_ids.add(stp_id)
+                expert_nodes.append(
+                    {
+                        "id": stp_id,
+                        "type": NodeType.CONCEPT.value,
+                        "name": action,
+                        "description": f"操作步骤：{action}",
+                        "properties": {
+                            "namespace": "expert",
+                            "order": order,
+                            "source_doc_id": source_doc_id,
+                        },
+                    }
+                )
+                step_nodes += 1
+            ordered_steps.append((order, action, stp_id))
+        ordered_steps.sort(key=lambda t: (t[0], t[1]))
+        step_names = [s[1] for s in ordered_steps]
+        seen_step_edges: set[tuple[str, str]] = set()
+        for i in range(len(ordered_steps) - 1):
+            src_id = ordered_steps[i][2]
+            tgt_id = ordered_steps[i + 1][2]
+            if src_id == tgt_id:
+                continue
+            key = (src_id, tgt_id)
+            if key in seen_step_edges:
+                continue
+            seen_step_edges.add(key)
+            expert_edges.append(
+                {
+                    "source_id": src_id,
+                    "target_id": tgt_id,
+                    "type": EdgeType.REFERENCES.value,
+                    "weight": 1.0,
+                    "properties": {
+                        "namespace": "expert",
+                        "relation": "sequential_step",
+                        "source_doc_id": source_doc_id,
+                    },
+                }
+            )
+            step_edges += 1
+
+    # 知识点：ku::<title> CONCEPT 节点 + doc::<source_doc_id> 锚点 DOCUMENT 节点，
+    # doc → ku 出 REFERENCES 边（relation=knowledge_unit）。references 类边不在边向量
+    # 白名单，检索兜底靠写回 .md 的文本段（dense/BM25）。
+    if knowledge_units:
+        doc_node_id = f"doc::{source_doc_id}"
+        if doc_node_id not in _existing_node_ids:
+            _existing_node_ids.add(doc_node_id)
+            expert_nodes.append(
+                {
+                    "id": doc_node_id,
+                    "type": NodeType.DOCUMENT.value,
+                    "name": source_doc_id,
+                    "description": f"文档：{source_doc_id}（知识点锚点）",
+                    "properties": {"namespace": "expert", "source_doc_id": source_doc_id},
+                }
+            )
+        seen_ku_edges: set[tuple[str, str]] = set()
+        for item in knowledge_units:
+            if not isinstance(item, dict):
+                continue
+            title = _clean_entity_name(str(item.get("title") or item.get("name") or ""))
+            if not title:
+                continue
+            ku_id = _slug(title, "ku")
+            if ku_id not in _existing_node_ids:
+                _existing_node_ids.add(ku_id)
+                expert_nodes.append(
+                    {
+                        "id": ku_id,
+                        "type": NodeType.CONCEPT.value,
+                        "name": title,
+                        "description": f"知识点（{item.get('type') or '概念'}）：{title}",
+                        "properties": {
+                            "namespace": "expert",
+                            "unit_type": str(item.get("type") or "") or None,
+                            "importance": _clamp_probability(item.get("importance")),
+                            "content": str(item.get("content") or "").strip()[:200] or None,
+                            "source_doc_id": source_doc_id,
+                        },
+                    }
+                )
+                ku_nodes += 1
+            knowledge_names.append(title)
+            key = (doc_node_id, ku_id)
+            if key in seen_ku_edges:
+                continue
+            seen_ku_edges.add(key)
+            expert_edges.append(
+                {
+                    "source_id": doc_node_id,
+                    "target_id": ku_id,
+                    "type": EdgeType.REFERENCES.value,
+                    "weight": 1.0,
+                    "properties": {
+                        "namespace": "expert",
+                        "relation": "knowledge_unit",
+                        "content": str(item.get("content") or "").strip() or None,
+                        "source_doc_id": source_doc_id,
+                    },
+                }
+            )
+            ku_edges += 1
+
+    result: dict[str, Any] = {
         "expert_nodes": expert_nodes,
         "expert_edges": expert_edges,
+        "shared_relations_added": shared_added,
         "faults": [
             {
                 "fault_id": entry["fault_id"],
@@ -324,6 +724,36 @@ def normalize_expert_knowledge(
             for name, entry in by_fault.items()
         ],
     }
+    # relation_stats 仅当六维新参任一非 None 时追加（旧调用路径输出键保持不变）
+    if equipment is not None or standards is not None or steps is not None or knowledge_units is not None:
+        result["relation_stats"] = {
+            "equipment_nodes": eq_nodes,
+            "equipment_edges": eq_edges,
+            "standard_nodes": std_nodes,
+            "standard_edges": std_edges,
+            "step_nodes": step_nodes,
+            "step_edges": step_edges,
+            "knowledge_nodes": ku_nodes,
+            "knowledge_edges": ku_edges,
+            "equipment_names": equipment_names[:10],
+            "standard_names": standard_names[:10],
+            "step_names": step_names,
+            "knowledge_names": knowledge_names[:10],
+        }
+    return result
+
+
+# 清洗 LLM 抽出的实体名里残留的 Markdown 标题前缀 / 序号（"一："/"2."/"## " 等），
+# 避免同一实体因前缀不同在图里分裂成两个节点
+_MD_ENTITY_PREFIX_RE = re.compile(
+    r"^(?:#{1,6}\s*|[一二三四五六七八九十百]+\s*[:：]?\s*|\d+[.)、]\s*)+"
+)
+
+
+def _clean_entity_name(text: str) -> str:
+    t = str(text or "").strip()
+    t = _MD_ENTITY_PREFIX_RE.sub("", t).strip()
+    return t
 
 
 def _clamp_probability(value: Any) -> Optional[float]:
@@ -345,41 +775,72 @@ _LLM_EXTRACT_SYSTEM = """你是管道能耗领域的知识抽取器。从给定�
 输出严格 JSON（不要 markdown 代码块），形如：
 {
   "faults": [
-    {"fault": "故障名", "cause": "原因", "prob": 0.0~1.0, "solution": "解法", "cost": "high|medium|low", "downtime": "8h"}
+    {"fault": "故障名", "cause": "原因", "prob": 0.0~1.0, "solution": "解法", "cost": "high|medium|low", "downtime": "8h", "importance": 0.0~1.0}
+  ],
+  "shared_relations": [
+    {"relation": "shared_cause", "faults": ["故障A", "故障B"], "shared_cause": "共享根因短语", "note": "一句话说明为何共享"},
+    {"relation": "shared_solution", "faults": ["故障A", "故障B"], "shared_solution": "共享处置短语", "note": "一句话说明"},
+    {"relation": "related_fault", "faults": ["故障A", "故障B"], "note": "因果链/同源/联动说明"}
   ],
   "steps": [
     {"step": 1, "action": "操作动作", "next_step": 2}
   ],
   "knowledge_units": [
-    {"type": "知识点|题目|方法", "title": "标题", "content": "摘要"}
+    {"type": "知识点|题目|方法", "title": "标题", "content": "摘要", "importance": 0.0~1.0}
   ]
 }
 
 抽取原则：
 - 因果链必须是"故障→原因→解法"的专家级语义，不是词共现。
 - prob 缺省填 null；cost/downtime 无法确定时省略字段。
+- importance 是该条目在客户现场的重要性权重（0~1）：核心故障/高频原因/关键解法给 0.8~1.0，
+  偶发/边缘给 0.2~0.5；原文无明确强弱时省略（由下游 PageRank 兜底）。
 - 步骤顺序保留原文的操作次序，next_step 省略表示无后续。
-- 抽不到对应单元就输出空数组。"""
+- shared_relations 是"跨故障共性"（多份故障报告里反复强调的部分）：
+  当多个故障共享同一根因（如"入口滤网堵塞"）或同一处置（如"清洗滤网"），或构成
+  跨故障因果链（如"伴热失热→结蜡→摩阻大"）时，显式输出一条；faults 数组里写故障名
+  （与 faults[].fault 保持一致，便于下游归并到同一节点）。
+- 抽不到对应单元就输出空数组（没有跨故障共性就输出 "shared_relations": []）。"""
+
+# 六维关系抽取（蒸馏路径专用）：在现有 4 维 JSON 上追加 equipment / standards 两维。
+# 拼接而非另写一份，保证前 4 维与 ingest 路径 prompt 逐字一致（零漂移）。
+_DISTILL_RELATIONS_SYSTEM = _LLM_EXTRACT_SYSTEM + """
+
+在上述 JSON 结构上再抽取两个维度（沿用"抽不到就输出空数组"原则）：
+  "equipment": [
+    {"name": "设备名", "type": "pipeline|pump_station|pump|other",
+     "links": [{"relation": "installed|transports|contains", "target": "目标设备名", "note": "一句话说明"}]}
+  ],
+  "standards": [
+    {"name": "标准编号或全称", "references": ["约束/适用对象名（设备名或故障名，与前几维措辞一致）"], "note": "一句话条款要点"}
+  ]
+新增维度抽取原则：
+- equipment 只收原文明确出现的设备实体（管线/泵站/泵/阀门/过滤器机组等）；type 不确定就填 "other"。
+- links 方向约定：installed 从=安装位置（站/管线）到=被装设备；transports 从=上游到=下游（介质流向）；contains 从=整体到=部件。
+- standards 只写原文出现的标准/规范（编号优先，如"GB 50350"）；references 写它约束或适用的对象，
+  用设备名或故障名（与 equipment[].name / faults[].fault 保持一致，便于下游归并到同一节点）。
+- 没有对应维度就输出空数组。"""
 
 
-def llm_extract_knowledge(document: Any) -> dict[str, Any]:
+def llm_extract_knowledge(document: Any, *, system: str = _LLM_EXTRACT_SYSTEM) -> dict[str, Any]:
     """用 LLM 从文档内容抽取结构化知识（因果链/步骤/知识点）。
 
-    失败抛 LLMClientError；调用方（ingest_pre_execution_hook / ingest_structured_knowledge）
-    负责捕获并降级。
+    system 可传 _DISTILL_RELATIONS_SYSTEM 走六维 prompt（蒸馏路径）；缺省 4 维 prompt，
+    ingest hook 调用点行为不变。失败抛 LLMClientError；调用方
+    （ingest_pre_execution_hook / ingest_structured_knowledge / 蒸馏工具）负责捕获并降级。
     """
 
     client = get_llm_client()
     content = str(getattr(document, "content", "") or "")
     if not content.strip():
-        return {"faults": [], "steps": [], "knowledge_units": []}
+        return {"faults": [], "shared_relations": [], "steps": [], "knowledge_units": [], "equipment": [], "standards": []}
 
     truncated = content[:_MAX_LLM_TEXT_CHARS]
     prompt = f"请从以下文本中抽取结构化知识：\n\n{truncated}"
 
     raw = client.complete(
         prompt,
-        system=_LLM_EXTRACT_SYSTEM,
+        system=system,
         temperature=0.1,
         timeout=60.0,
     )
@@ -387,11 +848,27 @@ def llm_extract_knowledge(document: Any) -> dict[str, Any]:
     result = parsed if isinstance(parsed, dict) else {}
     return {
         "faults": result.get("faults", []) if isinstance(result.get("faults"), list) else [],
+        "shared_relations": result.get("shared_relations", [])
+        if isinstance(result.get("shared_relations"), list)
+        else [],
         "steps": result.get("steps", []) if isinstance(result.get("steps"), list) else [],
         "knowledge_units": result.get("knowledge_units", [])
         if isinstance(result.get("knowledge_units"), list)
         else [],
+        # 六维新增（4 维 prompt 路径恒为 []）
+        "equipment": result.get("equipment", []) if isinstance(result.get("equipment"), list) else [],
+        "standards": result.get("standards", []) if isinstance(result.get("standards"), list) else [],
     }
+
+
+def llm_extract_relations(document: Any) -> dict[str, Any]:
+    """六维关系抽取（蒸馏路径）：故障因果链 + 跨故障共享 + 设备链路 + 标准引用 + 步骤 + 知识点。
+
+    返回 {faults, shared_relations, equipment, standards, steps, knowledge_units}；
+    复用 llm_extract_knowledge 的 _DISTILL_RELATIONS_SYSTEM prompt 与解析链路，
+    失败抛 LLMClientError（调用方降级规则兜底）。
+    """
+    return llm_extract_knowledge(document, system=_DISTILL_RELATIONS_SYSTEM)
 
 
 def _parse_json_payload(raw: str) -> Any:
@@ -705,14 +1182,28 @@ def distill_expert_to_document_graph(
 def upsert_expert_relations(
     expert_data: dict[str, Any], *, root_path: str = "knowledge_base"
 ) -> dict[str, int]:
-    """A3 蒸馏入口：upsert 专家关系进文档图并触发图加载器 reload。
+    """A3 蒸馏入口：专家关系 upsert 进文档图 + 渲染文本入向量库 + 图加载器 reload。
 
-    distill_expert_graph 开关在调用方（路由）判断；此处只负责落盘 + reload。
+    三段（各自失败降级，不阻断主链路）：
+      1) distill_expert_to_document_graph：节点/边落盘进文档图（图谱区据此展示因果网）
+      2) _index_expert_relations_as_text：把"专家关系"渲染成检索友好文本，写回该 doc
+         的 .md 文件并刷新向量索引（dense + sparse/BM25）——即"存到向量里面"
+      3) builder.reload_all：图谱加载器重载，前端 /graph/query 立即可见新节点/边
+
+    distill_expert_graph 开关在调用方（路由）判断；此处只负责落盘 + 入库 + reload。
     """
 
     summary = distill_expert_to_document_graph(
         _primary_doc_id_from_expert_data(expert_data), expert_data=expert_data, root_path=root_path
     )
+
+    # 2) 专家关系 → 检索文本 → 写回 .md → 刷新向量（dense + sparse）
+    try:
+        _index_expert_relations_as_text(expert_data, root_path=root_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Expert relations vector index degraded: %s", exc)
+
+    # 3) 图加载器 reload
     try:
         create_registry, get_builder = _load_kg_factories()
         get_builder().reload_all(
@@ -720,7 +1211,199 @@ def upsert_expert_relations(
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Expert graph reload after distill degraded: %s", exc)
+
+    # 4) 图结构变了 → 重建 PageRank/N 跳预存 + 边描述向量 + 社区层
+    #    （P0-③ 可插拔同款：各自失败降级，不阻断主链路）
+    try:
+        from src.knowledge_graph import get_knowledge_graph_builder
+        from src.knowledge_graph.community import build_communities, upsert_community_vectors
+        from src.knowledge_graph.graph_rank import build_graph_rank
+        from src.rag.edge_vector_store import (
+            build_edge_descriptions,
+            upsert_edge_vectors,
+        )
+
+        builder = get_knowledge_graph_builder()
+        build_graph_rank(builder.graph)
+        upsert_edge_vectors(build_edge_descriptions(builder.graph))
+        communities = build_communities(builder)
+        if communities:
+            upsert_community_vectors(communities)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Graph structure refresh after distill degraded: %s", exc)
+
     return summary
+
+
+def _render_expert_relations(expert_data: dict[str, Any]) -> str:
+    """把归一化的专家因果/解法渲染成一段"检索友好"的自然语言。
+
+    这段文本会被写进文档 .md → 进向量/BM25 语料，使"专家关系"既能在图上
+    展示（节点/边），又能被 RAG 相似度检索命中（用户问题与这段因果描述做
+    向量/BM25 匹配即可命中，不必靠图字面匹配找入口）。
+    """
+
+    lines: list[str] = []
+    faults = expert_data.get("faults", []) or []
+    edges = expert_data.get("expert_edges", []) or []
+    id_to_name = {
+        node.get("id"): node.get("name")
+        for node in expert_data.get("expert_nodes", []) or []
+        if isinstance(node, dict)
+    }
+
+    for fault in faults:
+        fault_name = str(fault.get("fault") or "").strip()
+        if not fault_name:
+            continue
+        for cause in fault.get("causes", []) or []:
+            cause_name = str(cause.get("cause") or "").strip()
+            if not cause_name:
+                continue
+            prob = cause.get("prob")
+            prob_text = f"（可能性约 {int(prob * 100)}%）" if isinstance(prob, (int, float)) else ""
+            parts = [f"故障「{fault_name}」的可能原因之一：{cause_name}{prob_text}。"]
+            for sol in cause.get("solutions", []) or []:
+                if not isinstance(sol, dict):
+                    continue
+                sol_name = str(sol.get("solution") or "").strip()
+                if not sol_name:
+                    continue
+                cost = str(sol.get("cost") or "").strip()
+                downtime = str(sol.get("downtime") or "").strip()
+                extra = []
+                if cost:
+                    extra.append(f"成本 {cost}")
+                if downtime:
+                    extra.append(f"停机 {downtime}")
+                sol_text = sol_name + (f"（{'，'.join(extra)}）" if extra else "")
+                parts.append(f"处置：{sol_text}。")
+            lines.append(" ".join(parts))
+
+    # 跨故障共享关系（G-E7 报告核心价值）：渲染成"共享根因/共享处置"自然语言，
+    # 使"哪些故障共享结蜡根因"这类 query 能命中专家因果知识标记块。
+    for edge in edges:
+        etype = str(edge.get("type", "")).strip()
+        if etype not in ("shared_cause", "shared_solution", "related_fault"):
+            continue
+        src = str(edge.get("source_id", "")).strip()
+        tgt = str(edge.get("target_id", "")).strip()
+        props = edge.get("properties", {}) or {}
+        detail = str(
+            props.get("shared_cause") or props.get("shared_solution") or props.get("note") or ""
+        ).strip()
+        label = {
+            "shared_cause": "共享根因",
+            "shared_solution": "共享处置",
+            "related_fault": "强相关",
+        }[etype]
+        s_name = id_to_name.get(src, src)
+        t_name = id_to_name.get(tgt, tgt)
+        lines.append(
+            f"「{s_name}」与「{t_name}」{label}：{detail}。"
+            if detail
+            else f"「{s_name}」与「{t_name}」{label}。"
+        )
+
+    # 六维扩展（蒸馏路径）：设备链路/标准引用/步骤顺序/知识点 四类新边也渲染进检索语料。
+    # references 类边不进边向量白名单，检索兜底全靠这段写回 .md 的 dense/BM25 文本，
+    # 所以这里必须逐类渲染（缺一段 = 那一维在 Graph RAG 语料里不可见）。
+    _NEW_RELATION_LABELS = {
+        "installed": "设备链路：安装于",
+        "transports": "设备链路：输送至",
+        "contains": "设备链路：包含部件",
+        "specifies": "标准引用",
+        "sequential_step": "步骤顺序",
+        "knowledge_unit": "知识点",
+    }
+    for edge in edges:
+        props = edge.get("properties", {}) or {}
+        relation = str(props.get("relation") or "").strip()
+        if relation not in _NEW_RELATION_LABELS:
+            continue
+        s_name = id_to_name.get(str(edge.get("source_id", "")), str(edge.get("source_id", "")))
+        t_name = id_to_name.get(str(edge.get("target_id", "")), str(edge.get("target_id", "")))
+        note = str(props.get("note") or "").strip()
+        if relation == "sequential_step":
+            lines.append(f"操作顺序：「{s_name}」的下一步是「{t_name}」。")
+        elif relation == "knowledge_unit":
+            content_excerpt = str(props.get("content") or "").strip()[:60]
+            lines.append(
+                f"知识点（属于文档 {s_name}）：{t_name}。{content_excerpt}"
+                if content_excerpt
+                else f"知识点（属于文档 {s_name}）：{t_name}。"
+            )
+        else:
+            label = _NEW_RELATION_LABELS[relation]
+            tail = f"（{note}）" if note else ""
+            lines.append(f"{label}：「{s_name}」→「{t_name}」{tail}。")
+
+    # 兜底：faults 未带 causes（仅 edges）时按边补关系描述
+    if not lines and edges:
+        for edge in edges:
+            src = str(edge.get("source_id", "")).strip()
+            tgt = str(edge.get("target_id", "")).strip()
+            etype = str(edge.get("type", "")).strip()
+            if src and tgt:
+                rel = {
+                    "caused_by": "导致",
+                    "solved_by": "可由其解决",
+                    "references": "关联",
+                    "contains": "包含",
+                }.get(etype, "关联")
+                lines.append(f"{src} {rel} {tgt}。")
+
+    return "\n".join(lines)
+
+
+def _index_expert_relations_as_text(
+    expert_data: dict[str, Any], *, root_path: str = "knowledge_base"
+) -> int:
+    """把专家关系渲染文本写回对应 doc 的 .md，并刷新向量（dense + sparse）。
+
+    返回写入的文本行数（0 = 无可渲染内容或目标文件缺失）。
+    降级策略：目标 .md 找不到 / 刷新失败 → warning，不阻断（图谱侧已落盘，向量侧尽力而为）。
+    """
+
+    text = _render_expert_relations(expert_data)
+    if not text.strip():
+        return 0
+
+    doc_id = _primary_doc_id_from_expert_data(expert_data)
+    target_path = _resolve_file_path(doc_id)
+    if target_path is None or not Path(target_path).exists():
+        logger.warning("Expert relations text index skipped: no target file for doc_id=%s", doc_id)
+        return 0
+
+    # 追加"专家因果知识"标记块（幂等：重跑时替换旧块）
+    marker = "<!-- expert-relations -->"
+    content = Path(target_path).read_text(encoding="utf-8")
+    section = f"\n\n{marker}\n专家因果知识（结构化直入，可被向量/BM25 检索）：\n{text}\n"
+    if marker in content:
+        content = content.split(marker, 1)[0].rstrip() + section
+    else:
+        content = content.rstrip() + section
+    Path(target_path).write_text(content, encoding="utf-8")
+
+    # dense：重新向量化该文档（.md 已含专家关系文本）
+    try:
+        from src.rag.pipeline import get_rag_pipeline
+
+        pipeline = get_rag_pipeline()
+        pipeline.add_document_report(str(target_path))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Expert relations dense re-index degraded: %s", exc)
+
+    # sparse：bump revision，让多 worker 下一轮 refresh 吃到新语料
+    try:
+        from .knowledge_registry import get_knowledge_registry
+
+        get_knowledge_registry()._bump_sparse_revision(f"expert-relations:{doc_id}")  # noqa: SLF001
+    except Exception:  # noqa: BLE001
+        pass
+
+    logger.info("Expert relations indexed as text: doc_id=%s lines=%d", doc_id, text.count("\n") + 1)
+    return text.count("\n") + 1
 
 
 def _primary_doc_id_from_expert_data(expert_data: dict[str, Any]) -> str:
@@ -847,7 +1530,13 @@ def ingest_structured_knowledge(
 
     options = dict(options or {})
     do_llm_extract = bool(options.get("llm_extract"))
-    do_distill = bool(options.get("distill_to_expert_graph"))
+    # A3 专家关系蒸馏默认开启：expert_knowledge 直入时即 upsert 进文档图（图谱展示有数据）；
+    # 调用方显式传 False 才关闭（P0-③ 可插拔语义不变，仅翻转默认值）。
+    do_distill = (
+        options.get("distill_to_expert_graph", True)
+        if "distill_to_expert_graph" in options
+        else True
+    )
     session_id = session_id or "ingest-default-session"
     flags = get_rag_config().pluggable
 
