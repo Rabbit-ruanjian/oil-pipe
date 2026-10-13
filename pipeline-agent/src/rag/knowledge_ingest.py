@@ -525,7 +525,9 @@ def normalize_expert_knowledge(
                 eq_edges += 1
 
     # 标准引用：std::<name> STANDARD 节点，向 references 目标出 SPECIFIES 边；
-    # 目标解析顺序：批次内设备名 → 故障名（含 shared 占位）→ ent:: 占位 CONCEPT。
+    # 目标语义 = 被约束/适用的参数、条款或机制对象（设备名可）；
+    # 解析顺序：批次内设备名 → ent:: 占位 CONCEPT；故障域目标（"标准约束某故障"
+    # 属 faults/shared_relations 维语义）跳过，不出 specifies 边。
     if standards:
         fault_lookup = {n.casefold(): e["fault_id"] for n, e in by_fault.items()}
         seen_std_edges: set[tuple[str, str]] = set()
@@ -563,7 +565,12 @@ def normalize_expert_knowledge(
                 target = _clean_entity_name(str(ref or ""))
                 if not target:
                     continue
-                target_id = eq_name_to_id.get(target.casefold()) or fault_lookup.get(target.casefold())
+                target_id = eq_name_to_id.get(target.casefold())
+                if target_id is None and fault_lookup.get(target.casefold()) is not None:
+                    # 故障域目标：标准"约束"故障是故障域语义（由 faults/shared_relations 维承载），
+                    # 不写 specifies 边，避免 std→fault 脏边混入边向量/社区检索。
+                    logger.debug("standard %s ref %s 是故障域目标，跳过 specifies 边", std_id, target)
+                    continue
                 if target_id is None:
                     target_id = _placeholder_concept(target, "ent", "标准引用")
                 key = (std_id, target_id)
@@ -812,13 +819,16 @@ _DISTILL_RELATIONS_SYSTEM = _LLM_EXTRACT_SYSTEM + """
      "links": [{"relation": "installed|transports|contains", "target": "目标设备名", "note": "一句话说明"}]}
   ],
   "standards": [
-    {"name": "标准编号或全称", "references": ["约束/适用对象名（设备名或故障名，与前几维措辞一致）"], "note": "一句话条款要点"}
+    {"name": "标准编号或全称", "references": ["被约束/适用的参数、条款或机制对象名（沿用原文措辞，如"雷诺数-摩阻系数关系""降凝剂投加量"；也可写设备名；不写故障名）"], "note": "一句话条款要点"}
   ]
 新增维度抽取原则：
 - equipment 只收原文明确出现的设备实体（管线/泵站/泵/阀门/过滤器机组等）；type 不确定就填 "other"。
 - links 方向约定：installed 从=安装位置（站/管线）到=被装设备；transports 从=上游到=下游（介质流向）；contains 从=整体到=部件。
-- standards 只写原文出现的标准/规范（编号优先，如"GB 50350"）；references 写它约束或适用的对象，
-  用设备名或故障名（与 equipment[].name / faults[].fault 保持一致，便于下游归并到同一节点）。
+- standards 只写原文出现的标准/规范（编号优先，如"GB 50350"；原文匿名化/简称（如"GB/T 某标准"）就沿用原文措辞，不要臆造编号）。
+  references 写它约束/适用的**参数、条款或机制对象**，沿用原文措辞（如"管道允许摩阻限值""机封冲洗"）；
+  也可写设备名（与 equipment[].name 一致，便于下游归并到同一节点）；**不写故障名**
+  （"标准约束某故障"属故障域语义，由 faults/shared_relations 维承载，standard 的 references 写故障名会导致
+  图谱 specifies 边错位、标准查询结果无意义）。
 - 没有对应维度就输出空数组。"""
 
 

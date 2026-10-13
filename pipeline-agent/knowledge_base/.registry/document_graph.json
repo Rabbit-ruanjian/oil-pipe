@@ -55161,54 +55161,6 @@
           }
         },
         {
-          "source_id": "std::GBT某标准-d1914449d2c2",
-          "target_id": "fault::管道摩阻损失过大-022ebdde6eca",
-          "type": "specifies",
-          "weight": 1.0,
-          "properties": {
-            "namespace": "expert",
-            "relation": "specifies",
-            "note": "管道水力计算按雷诺数-摩阻系数关系。",
-            "source_doc_id": "465e9dd71e50"
-          }
-        },
-        {
-          "source_id": "std::GBT某标准-d1914449d2c2",
-          "target_id": "fault::泵站出口压力持续下降-cc2e96c58fc4",
-          "type": "specifies",
-          "weight": 1.0,
-          "properties": {
-            "namespace": "expert",
-            "relation": "specifies",
-            "note": "管道水力计算按雷诺数-摩阻系数关系。",
-            "source_doc_id": "465e9dd71e50"
-          }
-        },
-        {
-          "source_id": "std::设备制造商规程-90948ac9d9fe",
-          "target_id": "fault::机封泄漏导致端面烧蚀-f3e34a935b22",
-          "type": "specifies",
-          "weight": 1.0,
-          "properties": {
-            "namespace": "expert",
-            "relation": "specifies",
-            "note": "机封冲洗按设备制造商规程。",
-            "source_doc_id": "465e9dd71e50"
-          }
-        },
-        {
-          "source_id": "std::油品凝固点核算规范-049c50e24886",
-          "target_id": "fault::管道摩阻损失过大-022ebdde6eca",
-          "type": "specifies",
-          "weight": 1.0,
-          "properties": {
-            "namespace": "expert",
-            "relation": "specifies",
-            "note": "降凝剂投加量按油品凝固点核算。",
-            "source_doc_id": "465e9dd71e50"
-          }
-        },
-        {
           "source_id": "stp::记录故障发生时刻-d1d063cdc3a6",
           "target_id": "stp::记录当时流量温度粘度三参数-30920ca5bfe2",
           "type": "references",
