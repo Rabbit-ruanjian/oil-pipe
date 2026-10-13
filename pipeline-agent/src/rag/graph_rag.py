@@ -48,47 +48,59 @@ class GraphRAGRetriever:
             return []
 
         contexts: List[dict] = []
-        seen_seeds: Set[str] = set()
-        expanded_seeds = 0
 
-        for hit in edge_hits:
-            contexts.append(
-                {
-                    "type": "graph_edge",
-                    "content": f"因果边（相似度 {hit['score']}）：{hit['description']}",
-                    "entities": [hit.get("source"), hit.get("target")],
-                    "relations": [
-                        {
-                            "source": hit.get("source"),
-                            "target": hit.get("target"),
-                            "type": hit.get("edge_type"),
-                        }
-                    ],
-                    "confidence": min(0.99, hit.get("score", 0.4)),
-                    "edge": hit,
-                }
-            )
-            # 向量命中边 → source/target 种子节点轻量 1-hop 邻域（取代原实体 BFS）
-            for seed in (hit.get("source"), hit.get("target")):
-                if not seed or seed in seen_seeds or expanded_seeds >= _MAX_EXPANDED_SEEDS:
-                    continue
-                seen_seeds.add(seed)
-                expanded = self._expand_seed(hit, seed)
-                if expanded:
-                    contexts.append(expanded)
-                    expanded_seeds += 1
+        # 两条向量腿**轮替**入列（edge1, comm1, edge2, comm2, ...）：
+        # 若边腿先占满预算再挂社区腿，1-hop 邻域展开会把 top_k 槽位吃光，
+        # 社区腿被尾部截断 → "社区向量腿零贡献"（2026-10 改写查询 0 命中的
+        # 原始抱怨之一）。轮替保证只要两腿各自有命中，top_k≥2 时都进结果。
+        max_leg = max(len(edge_hits), len(community_hits))
+        for i in range(max_leg):
+            if i < len(edge_hits):
+                hit = edge_hits[i]
+                contexts.append(
+                    {
+                        "type": "graph_edge",
+                        "content": f"因果边（相似度 {hit['score']}）：{hit['description']}",
+                        "entities": [hit.get("source"), hit.get("target")],
+                        "relations": [
+                            {
+                                "source": hit.get("source"),
+                                "target": hit.get("target"),
+                                "type": hit.get("edge_type"),
+                            }
+                        ],
+                        "confidence": min(0.99, hit.get("score", 0.4)),
+                        "edge": hit,
+                    }
+                )
+            if i < len(community_hits):
+                hit = community_hits[i]
+                contexts.append(
+                    {
+                        "type": "graph_community",
+                        "content": f"社区摘要（相似度 {hit['score']}）：{hit['summary']}",
+                        "entities": [hit.get("community_id")],
+                        "relations": [],
+                        "confidence": min(0.99, hit.get("score", 0.5)),
+                        "community": hit,
+                    }
+                )
 
-        for hit in community_hits:
-            contexts.append(
-                {
-                    "type": "graph_community",
-                    "content": f"社区摘要（相似度 {hit['score']}）：{hit['summary']}",
-                    "entities": [hit.get("community_id")],
-                    "relations": [],
-                    "confidence": min(0.99, hit.get("score", 0.5)),
-                    "community": hit,
-                }
-            )
+        # 1-hop 邻域展开（取代原实体 BFS）是**辅助填充**：只在两条腿之后、
+        # top_k 预算有剩余时展开，最多 _MAX_EXPANDED_SEEDS 个种子。
+        remaining = max(0, top_k - len(contexts))
+        if remaining:
+            seen_seeds: Set[str] = set()
+            expanded_seeds = 0
+            for hit in edge_hits:
+                for seed in (hit.get("source"), hit.get("target")):
+                    if not seed or seed in seen_seeds or expanded_seeds >= min(remaining, _MAX_EXPANDED_SEEDS):
+                        continue
+                    seen_seeds.add(seed)
+                    expanded = self._expand_seed(hit, seed)
+                    if expanded:
+                        contexts.append(expanded)
+                        expanded_seeds += 1
 
         return contexts[: max(top_k, 3)]
 
