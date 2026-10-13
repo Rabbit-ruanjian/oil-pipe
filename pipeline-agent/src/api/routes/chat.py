@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import json
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -28,6 +28,8 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     stream: bool = True
+    mode: Optional[str] = None
+    context: Optional[Dict[str, Any]] = None
 
 
 class HITLConfirmRequest(BaseModel):
@@ -45,17 +47,25 @@ class HITLConfirmRequest(BaseModel):
 
 @router.post("")
 async def chat(request: ChatRequest):
-    """非流式聊天接口。所有输入都经过 LLM，无硬编码路由。"""
+    """非流式聊天接口。报告解读模式只做上下文直答，不触发工具链。"""
     session_id = request.session_id or generate_session_id()
     trace_id = generate_trace_id()
     workflow = get_workflow()
 
     start_time = time.time()
-    result = await workflow.ainvoke(
-        user_input=request.message,
-        session_id=session_id,
-        trace_id=trace_id,
-    )
+    if request.mode == "report" and request.context:
+        result = await workflow.answer_report_question(
+            user_input=request.message,
+            report_context=request.context,
+            session_id=session_id,
+            trace_id=trace_id,
+        )
+    else:
+        result = await workflow.ainvoke(
+            user_input=request.message,
+            session_id=session_id,
+            trace_id=trace_id,
+        )
     elapsed = int((time.time() - start_time) * 1000)
 
     result["execution_time_ms"] = elapsed

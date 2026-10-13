@@ -1,7 +1,9 @@
 package com.pipeline.calculation.service.impl;
 
-import java.util.List;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -170,14 +172,26 @@ public class CalculationHistoryServiceImpl
             return 0;
         }
 
-        boolean result = this.removeByIds(ids);
+        // 不直接返回 ids.size()：removeByIds 的 boolean 只表示批量语句是否执行成功，
+        // 并不表示列表中的每一个 ID 都确实影响了数据库行。先去重，再逐条删除，
+        // 让返回值与数据库实际删除行数保持一致。
+        int deletedCount = 0;
+        List<Long> normalizedIds = new ArrayList<>(new LinkedHashSet<>(ids));
+        for (Long id : normalizedIds) {
+            if (id == null) {
+                continue;
+            }
 
-        if (result) {
-            log.info("批量删除计算历史记录: ids={}", ids);
-            return ids.size();
+            boolean deleted = this.removeById(id);
+            if (deleted) {
+                deletedCount++;
+            } else {
+                log.warn("计算历史记录不存在或未删除: id={}", id);
+            }
         }
 
-        return 0;
+        log.info("批量删除计算历史记录: requestedIds={}, deletedCount={}", normalizedIds, deletedCount);
+        return deletedCount;
     }
 
     @Override

@@ -386,6 +386,11 @@ export default function HydraulicAnalysis() {
       return;
     }
 
+    // 油品和泵站是报告可信度的关键来源。未选择时不使用页面默认值自动生成计算记录。
+    if (!values.oilId || !values.pumpStationId) {
+      return;
+    }
+
     const payload = {
       ...values,
       projectId: selectedProjectId ?? values.projectId,
@@ -634,7 +639,7 @@ export default function HydraulicAnalysis() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="oilId" label="油品参数">
+                  <Form.Item name="oilId" label="油品参数" rules={[{ required: true, message: '请选择油品参数' }]}>
                     <Select<number>
                       allowClear
                       placeholder="从数据中心带入油品参数"
@@ -644,7 +649,7 @@ export default function HydraulicAnalysis() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="pumpStationId" label="泵站参数">
+                  <Form.Item name="pumpStationId" label="泵站参数" rules={[{ required: true, message: '请选择泵站参数' }]}>
                     <Select<number>
                       allowClear
                       placeholder="从数据中心带入泵站参数"

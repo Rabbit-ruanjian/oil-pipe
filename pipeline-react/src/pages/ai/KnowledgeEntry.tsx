@@ -126,6 +126,11 @@ const resolveDisplayProgress = (stage: string, progressPercent?: number) => {
   return normalized > 0 ? normalized : 10;
 };
 
+const truncateText = (value: string, maxLength: number) => {
+  const normalized = value.trim();
+  return normalized.length > maxLength ? `${normalized.slice(0, maxLength)}...` : normalized;
+};
+
 export default function KnowledgeEntry() {
   const [form] = Form.useForm<KnowledgeFormValues>();
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -321,10 +326,23 @@ export default function KnowledgeEntry() {
       title: '文档信息',
       dataIndex: 'title',
       key: 'title',
+      width: 220,
       render: (_, record) => (
-        <Space direction="vertical" size={4}>
-          <Text strong>{record.title}</Text>
-          <Text type="secondary">{record.fileName}</Text>
+        <Space direction="vertical" size={4} style={{ width: '100%', minWidth: 0 }}>
+          <Text
+            strong
+            title={record.title}
+            style={{ display: 'block', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {truncateText(record.title, 5)}
+          </Text>
+          <Text
+            type="secondary"
+            title={record.fileName}
+            style={{ display: 'block', maxWidth: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {truncateText(record.fileName, 14)}
+          </Text>
           {record.tags ? (
             <Space size={[4, 4]} wrap>
               {record.tags
@@ -342,14 +360,16 @@ export default function KnowledgeEntry() {
       title: '分类',
       dataIndex: 'category',
       key: 'category',
-      render: (value: string) => CATEGORY_LABEL_MAP[value] || value,
+      width: 110,
+      render: (value: string) => <span style={{ whiteSpace: 'nowrap' }}>{CATEGORY_LABEL_MAP[value] || value}</span>,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
+      width: 110,
       render: (value: string, record) => (
-        <Space direction="vertical" size={4}>
+        <Space direction="vertical" size={4} style={{ minWidth: 92 }}>
           <Tag color={STATUS_META[value]?.color || 'default'}>{STATUS_META[value]?.label || value}</Tag>
           {record.failureReason ? <Text type="danger">{record.failureReason}</Text> : null}
         </Space>
@@ -359,7 +379,7 @@ export default function KnowledgeEntry() {
       title: 'Stage Progress',
       dataIndex: 'ingestStage',
       key: 'ingestStage',
-      width: 220,
+      width: 230,
       render: (value: string | undefined, record) => {
         const stage = normalizeDisplayStage(value, record.status);
         const percent = resolveDisplayProgress(stage, record.progressPercent);
@@ -379,7 +399,7 @@ export default function KnowledgeEntry() {
     {
       title: '切片 / 重试',
       key: 'chunkCount',
-      width: 140,
+      width: 150,
       render: (_, record) => (
         <Space direction="vertical" size={4}>
           <Text>{record.chunkCount ?? 0} 个切片</Text>
@@ -415,14 +435,14 @@ export default function KnowledgeEntry() {
       title: '最近入库',
       dataIndex: 'lastIngestTime',
       key: 'lastIngestTime',
-      width: 180,
+      width: 190,
       render: (value?: string) => <div style={{ whiteSpace: 'nowrap' }}>{value || '-'}</div>,
     },
     {
       title: '操作',
       key: 'actions',
       fixed: 'right',
-      width: 260,
+      width: 290,
       render: (_, record) => (
         <Space wrap>
           <Button size="small" icon={<FileSearchOutlined />} onClick={() => void handleOpenTasks(record)}>
@@ -647,7 +667,7 @@ export default function KnowledgeEntry() {
             columns={columns}
             dataSource={filteredDocuments}
             pagination={{ pageSize: 8, showSizeChanger: false }}
-            scroll={{ x: 1320 }}
+            scroll={{ x: 1560 }}
           />
         ) : (
           <Empty description="当前还没有录入任何知识文档" />

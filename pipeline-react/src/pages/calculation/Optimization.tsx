@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Col, Form, InputNumber, Modal, Row, Select, Slider, Spin, Tag } from 'antd';
 import { CheckCircleFilled, ExclamationCircleFilled, ExpandOutlined, SettingOutlined } from '@ant-design/icons';
 import type { EChartsOption } from 'echarts';
+import { useLocation } from 'react-router-dom';
 import Chart from '../../components/common/Chart';
 import { calculationApi, oilPropertyApi, pipelineApi, projectApi, pumpStationApi } from '../../api';
 import type {
@@ -30,6 +31,21 @@ type PumpSkidProps = {
   pump480Head: number;
   pump375Head: number;
 };
+
+type SmartReportOptimizationPrefill = {
+  source?: string;
+  projectId?: number | null;
+  projectName?: string | null;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  recommendation?: string | null;
+};
+
+type SmartReportLocationState = {
+  smartReportPrefill?: SmartReportOptimizationPrefill;
+};
+
+const SMART_REPORT_PREFILL_KEY = 'smart-report-optimization-prefill';
 
 const INITIAL_VALUES: OptimizationParams = {
   flowRate: 850,
@@ -174,6 +190,7 @@ function PumpSkid({ pump480Num, pump375Num, pump480Head, pump375Head }: PumpSkid
 }
 
 export default function Optimization() {
+  const location = useLocation();
   const [form] = Form.useForm<OptimizationFormValues>();
   const selectedStationId = Form.useWatch('pumpStationId', form);
   const watchedDensity = Form.useWatch('density', form);
@@ -194,6 +211,18 @@ export default function Optimization() {
   const [pumpPreviewOpen, setPumpPreviewOpen] = useState(false);
   const autoSubmitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const submitRequestId = useRef(0);
+  const prefillAppliedRef = useRef(false);
+
+  const smartReportPrefill = useMemo<SmartReportOptimizationPrefill | null>(() => {
+    const routeState = location.state as SmartReportLocationState | null;
+    if (routeState?.smartReportPrefill) return routeState.smartReportPrefill;
+    try {
+      const stored = window.sessionStorage.getItem(SMART_REPORT_PREFILL_KEY);
+      return stored ? (JSON.parse(stored) as SmartReportOptimizationPrefill) : null;
+    } catch {
+      return null;
+    }
+  }, [location.state]);
 
   const loadBaseData = useCallback(async () => {
     const [projectRes, oilRes, stationRes] = await Promise.all([
@@ -203,8 +232,12 @@ export default function Optimization() {
     setProjects(projectList);
     setOils(oilRes.data ?? []);
     setStations(stationRes.data ?? []);
-    if (projectList.length > 0) setSelectedProjectId(projectList[0].proId);
-  }, []);
+    if (projectList.length > 0) {
+      const requestedProjectId = Number(smartReportPrefill?.projectId);
+      const requestedProject = projectList.find((project) => project.proId === requestedProjectId);
+      setSelectedProjectId(requestedProject?.proId ?? projectList[0].proId);
+    }
+  }, [smartReportPrefill?.projectId]);
 
   const loadPipelines = useCallback(async (projectId: number) => {
     const response = await pipelineApi.listByProject(projectId);
@@ -227,9 +260,12 @@ export default function Optimization() {
   }, [form]);
 
   useEffect(() => {
-    form.setFieldsValue(INITIAL_VALUES);
+    form.setFieldsValue({
+      ...INITIAL_VALUES,
+      ...(smartReportPrefill?.input as Partial<OptimizationFormValues> | undefined),
+    });
     void loadBaseData();
-  }, [form, loadBaseData]);
+  }, [form, loadBaseData, smartReportPrefill?.input]);
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -238,6 +274,16 @@ export default function Optimization() {
       form.setFieldValue('projectId', selectedProjectId);
     }
   }, [form, loadPipelines, selectedProjectId]);
+
+  useEffect(() => {
+    if (!smartReportPrefill?.input || prefillAppliedRef.current || !selectedProjectId || !pipelines.length) return;
+    form.setFieldsValue({
+      ...(smartReportPrefill.input as Partial<OptimizationFormValues>),
+      projectId: selectedProjectId,
+    });
+    prefillAppliedRef.current = true;
+    window.sessionStorage.removeItem(SMART_REPORT_PREFILL_KEY);
+  }, [form, pipelines.length, selectedProjectId, smartReportPrefill]);
 
   useEffect(() => {
     if (!selectedStationId) return;
@@ -297,6 +343,8 @@ export default function Optimization() {
       return;
     }
     const payload = { ...values, projectId: selectedProjectId ?? values.projectId };
+    // 保留完整来源参数用于智能报告联动；仅从发给优化算法的请求中移除关联 ID。
+    const reportInput = { ...payload };
     delete payload.pipelineId;
     delete payload.oilId;
     delete payload.pumpStationId;
@@ -319,7 +367,7 @@ export default function Optimization() {
           calcType: 'OPTIMIZATION',
           projectId: payload.projectId ?? null,
           projectName: project?.name ?? null,
-          input: payload as unknown as Record<string, unknown>,
+          input: reportInput as unknown as Record<string, unknown>,
           output: nextResult as unknown as Record<string, unknown>,
           updatedAt: new Date().toISOString(),
         });
@@ -483,7 +531,7 @@ export default function Optimization() {
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="oilId" label="油品参数">
+                <Form.Item name="oilId" label="油品参数" rules={[{ required: true, message: '请选择油品参数' }]}>
                   <Select<number>
                     allowClear
                     placeholder="带入油品参数"
@@ -496,7 +544,7 @@ export default function Optimization() {
                 </Form.Item>
               </Col>
               <Col span={12}>
-                <Form.Item name="pumpStationId" label="泵站参数">
+                <Form.Item name="pumpStationId" label="泵站参数" rules={[{ required: true, message: '请选择泵站参数' }]}>
                   <Select<number>
                     allowClear
                     placeholder="带入泵站参数"
