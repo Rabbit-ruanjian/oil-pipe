@@ -441,7 +441,9 @@ def community_search(
         dot = sum(a * b for a, b in zip(c.summary_vector, qvec))
         na = math.sqrt(sum(a * a for a in c.summary_vector)) or 1.0
         nb = math.sqrt(sum(b * b for b in qvec)) or 1.0
-        cos = dot / (na * nb)
+        # qvec 是 numpy 向量，cos 会是 np.float32；round() 保 dtype → JSON 序列化炸。
+        # 先转 Python float（API/LLM 上下文消费的都是 float）。
+        cos = float(dot / (na * nb))
         if cos >= min_score:
             scored.append(
                 {

@@ -1,97 +1,56 @@
-﻿"""Graph RAG retriever."""
+"""Graph RAG retriever.
+
+纯向量驱动（GraphRAG local search）：
+- 边描述向量（edge_search）→ "因果边（相似度 X）：..." + 命中边 source/target
+  种子节点的轻量 1-hop 邻域（GraphRAG 局部搜索的邻域扩展）；
+- 社区摘要向量（community_search）→ "社区摘要（相似度 X）：..."（行上带
+  source_docs/chunk_ids，调用方可据此再取原文 chunk）。
+
+2026-10 按用户要求断掉了"文本图"检索路：不再做 LLM 实体抽取、
+match_nodes_by_text 名字匹配、从实体起点的深度 2 BFS。向量腿全空 → 返回 []
+（no-op 降级，与开关关 / 无向量行为一致，不回退文本匹配）。
+"""
 
 from __future__ import annotations
 
-import json
-from typing import List
+from typing import Dict, List, Set
 
-from langchain_openai import ChatOpenAI
-from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
-
-from src.config import settings
 from src.knowledge_graph import KnowledgeGraphBuilder
 from src.knowledge_graph.community import community_search
 from src.rag.edge_vector_store import edge_search
 from src.utils import logger
 
+# 单条查询最多扩展的向量种子节点数（边命中 source/target 去重后取前 N 个做 1-hop）
+_MAX_EXPANDED_SEEDS = 3
+
 
 class GraphRAGRetriever:
-    """Retrieve structured context from knowledge graph."""
+    """Retrieve structured context from knowledge graph (vector-driven)."""
 
     def __init__(self, knowledge_graph: KnowledgeGraphBuilder):
         self.kg = knowledge_graph
-        self._llm = None
-
-    @property
-    def llm(self) -> ChatOpenAI:
-        if self._llm is None:
-            self._llm = ChatOpenAI(
-                api_key=settings.OPENAI_API_KEY,
-                base_url=settings.OPENAI_API_BASE,
-                model=settings.graph_query_model_name,
-                temperature=0,
-                max_tokens=300,
-            )
-        return self._llm
 
     def retrieve(self, query: str, top_k: int = 5) -> List[dict]:
-        """Retrieve graph contexts for query."""
+        """Retrieve graph contexts for query.
 
-        if "故障" in query and ("原因" in query or "因果" in query):
-            causes = self.kg.query_fault_causes(query)
-            if causes:
-                return [
-                    {
-                        "type": "graph",
-                        "content": self._serialize_fault_causes(causes),
-                        "entities": [query],
-                        "relations": [],
-                        "confidence": 0.9,
-                    }
-                ]
+        纯向量驱动，无文本匹配回退：
+        1. 边向量命中（edge_search）→ graph_edge 上下文 + 命中边种子节点的
+           轻量 1-hop 邻域（GraphRAG local search 的邻域扩展）；
+        2. 社区摘要向量命中（community_search）→ graph_community 上下文。
 
-        entities = self._extract_entities(query)
-        if not entities:
-            entities = [query]
+        两条腿都为空（开关关 / 无向量 / embedding 失败）→ 返回 []。
+        """
+
+        edge_hits = edge_search(query, top_k=min(top_k, 3))
+        community_hits = community_search(query, top_k=min(top_k, 3))
+        if not edge_hits and not community_hits:
+            logger.debug("graph_rag: 无向量命中 query={}", query)
+            return []
 
         contexts: List[dict] = []
-        for entity in entities:
-            matched_nodes = self._find_nodes(entity)
-            for node_id in matched_nodes[:top_k]:
-                subgraph = self.kg.get_subgraph_for_visualization(node_id, depth=2)
-                serialized = self._serialize_subgraph(subgraph)
-                if not serialized:
-                    continue
-                contexts.append(
-                    {
-                        "type": "graph",
-                        "content": serialized,
-                        "entities": [entity],
-                        "relations": subgraph.get("edges", []),
-                        "confidence": 0.85,
-                    }
-                )
+        seen_seeds: Set[str] = set()
+        expanded_seeds = 0
 
-        # GraphRAG 2.0 摘要语义腿：社区摘要向量粗筛命中 → 拼进 content
-        # （开关关 / 无社区 → no-op，行为与现状一致）
-        community_hits = community_search(query, top_k=min(top_k, 3))
-        for hit in community_hits:
-            contexts.append(
-                {
-                    "type": "graph_community",
-                    "content": f"社区摘要（相似度 {hit['score']}）：{hit['summary']}",
-                    "entities": [hit.get("community_id")],
-                    "relations": [],
-                    "confidence": min(0.99, hit.get("score", 0.5)),
-                    "community": hit,
-                }
-            )
-
-        # GraphRAG 2.1 边描述语义腿（对标 ragflow relation 向量检索）：
-        # query 向量直接命中"边描述向量"（因果链整句），比实体词面回查更贴语义
-        # （开关关 / 无边向量 / embedding 失败 → no-op，不阻断）
-        edge_hits = edge_search(query, top_k=min(top_k, 3))
         for hit in edge_hits:
             contexts.append(
                 {
@@ -109,49 +68,49 @@ class GraphRAGRetriever:
                     "edge": hit,
                 }
             )
+            # 向量命中边 → source/target 种子节点轻量 1-hop 邻域（取代原实体 BFS）
+            for seed in (hit.get("source"), hit.get("target")):
+                if not seed or seed in seen_seeds or expanded_seeds >= _MAX_EXPANDED_SEEDS:
+                    continue
+                seen_seeds.add(seed)
+                expanded = self._expand_seed(hit, seed)
+                if expanded:
+                    contexts.append(expanded)
+                    expanded_seeds += 1
+
+        for hit in community_hits:
+            contexts.append(
+                {
+                    "type": "graph_community",
+                    "content": f"社区摘要（相似度 {hit['score']}）：{hit['summary']}",
+                    "entities": [hit.get("community_id")],
+                    "relations": [],
+                    "confidence": min(0.99, hit.get("score", 0.5)),
+                    "community": hit,
+                }
+            )
 
         return contexts[: max(top_k, 3)]
 
-    def _extract_entities(self, query: str) -> List[str]:
-        """Extract domain entities from query with LLM + fallback."""
-
-        prompt = ChatPromptTemplate.from_template(
-            """
-从以下查询中提取管道工程相关实体（设备、参数、故障、标准等）。
-查询: {query}
-仅输出 JSON 数组，如 ["实体1", "实体2"]。
-""".strip()
-        )
-        chain = prompt | self.llm | StrOutputParser()
+    def _expand_seed(self, hit: Dict, seed: str) -> Dict | None:
+        """种子节点 1-hop 邻域 → graph 上下文；图谱不可用 / 邻域为空 → None。"""
 
         try:
-            text = chain.invoke({"query": query})
-            start = text.find("[")
-            end = text.rfind("]")
-            if start == -1 or end == -1 or end <= start:
-                raise ValueError("No JSON array found")
-            values = json.loads(text[start : end + 1])
-            return [str(item) for item in values if str(item).strip()]
-        except Exception as exc:
-            logger.debug(f"Graph entity extraction fallback: {exc}")
-            return [part for part in query.replace("，", " ").replace(",", " ").split() if part]
-
-    def _find_nodes(self, entity_name: str) -> List[str]:
-        """Match graph nodes by text."""
-
-        names = [entity_name]
-        synonyms = self._expand_synonyms(entity_name)
-        names.extend(synonyms)
-
-        matched: List[str] = []
-        seen = set()
-        for name in names:
-            for node_id in self.kg.match_nodes_by_text(name):
-                if node_id in seen:
-                    continue
-                seen.add(node_id)
-                matched.append(node_id)
-        return matched
+            subgraph = self.kg.get_subgraph_for_visualization(seed, depth=1)
+            serialized = self._serialize_subgraph(subgraph)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("graph_rag 种子邻域展开失败 seed={}: {}", seed, exc)
+            return None
+        if not serialized:
+            return None
+        return {
+            "type": "graph",
+            "content": f"向量命中节点 {seed} 邻域（1-hop）：{serialized}",
+            "entities": [seed],
+            "relations": subgraph.get("edges", []),
+            "confidence": min(0.95, hit.get("score", 0.4)),
+            "seed_node": seed,
+        }
 
     @staticmethod
     def _serialize_subgraph(subgraph: dict) -> str:
@@ -174,32 +133,4 @@ class GraphRAGRetriever:
         if not lines:
             lines = [f"实体: {node.get('name', node.get('id'))}" for node in nodes[:6]]
 
-        return "；".join(lines)
-
-    @staticmethod
-    def _expand_synonyms(entity_name: str) -> List[str]:
-        mapping = {
-            "出口压力": ["outlet_pressure", "末站压力", "pressure"],
-            "流量": ["flow_rate", "throughput"],
-            "粘度": ["viscosity"],
-            "摩阻": ["friction_loss", "friction_factor"],
-            "泵站": ["pump_station"],
-            "泵": ["pump"],
-            "故障": ["fault"],
-        }
-
-        results: List[str] = []
-        for key, values in mapping.items():
-            if key in entity_name:
-                results.extend(values)
-        return results
-
-    @staticmethod
-    def _serialize_fault_causes(causes: List[dict]) -> str:
-        lines = []
-        for item in causes[:5]:
-            solutions = ",".join([solution.get("name", "") for solution in item.get("solutions", [])[:3]])
-            lines.append(
-                f"故障[{item.get('fault')}]可能原因[{item.get('cause')}]，概率{item.get('probability', 0):.2f}，建议[{solutions}]"
-            )
         return "；".join(lines)

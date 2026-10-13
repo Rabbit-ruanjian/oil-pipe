@@ -66,21 +66,23 @@ class GraphAgent:
             # P0-③ B4：graph_traversal_llm 开关开 → LLM 决策遍历；关 → 现有固定路径
             result = self._maybe_graph_traversal(query, query_type)
             if result is None:
+                # 2026-10：结构化查询类型的入口也断掉名字匹配 —— 边向量命中
+                # 节点做种子，builder 只做纯结构化展开（结果契约不变）。
+                # 种子取 top-10：结构化查询的目标节点类型（fault/standard/
+                # pipeline 等）常不在命中边端点上，要 builder 有界回溯 1~2 跳
+                # 才到（如"摩阻 标准规范限值"的 specifies 边排第 10）。
                 if query_type == "fault_cause":
-                    result = graph.query_fault_causes(query)
+                    result = graph.fault_causes_from_nodes(self._vector_seeds(query, top_k=10))
                 elif query_type == "standards":
-                    result = graph.find_related_standards(query)
+                    result = graph.standards_from_nodes(self._vector_seeds(query, top_k=10))
                 elif query_type == "equipment_chain":
-                    result = graph.query_equipment_chain(query)
+                    result = graph.equipment_chain_from_nodes(self._vector_seeds(query, top_k=10))
                 else:
-                    if hasattr(graph, "query_fuzzy"):
-                        result = graph.query_fuzzy(query)
-                    else:
-                        node_ids = graph.match_nodes_by_text(query)
-                        if not node_ids:
-                            result = {"message": f"未找到与 '{query}' 相关的知识图谱信息。"}
-                        else:
-                            result = graph.get_subgraph_for_visualization(node_ids[0], depth=2)
+                    # 2026-10：general 入口改为向量种子驱动 —— 断掉名字匹配
+                    # （match_nodes_by_text / query_fuzzy 文本回查）；命中边向量的
+                    # source/target 节点作为种子，get_subgraph_for_visualization
+                    # 仍做深度 2 拓扑展开（①区看板 viz 渲染依赖该结构）。
+                    result = self._vector_seeded_general(graph, query)
 
             if not result:
                 # 统一返回 dict（GraphQueryResponse.result: dict）；此前返回 str
@@ -144,6 +146,88 @@ class GraphAgent:
         if plan is None:
             return None
         return planner.traverse(graph, query=query, plan=plan)
+
+    def _vector_seeded_general(self, graph, query: str) -> dict:
+        """向量种子的 general 图查询（已断名字匹配入口，2026-10）。
+
+        edge_search top3 命中边的 source/target 节点做种子（按命中顺序去重），
+        取第一个在图中存在的种子做深度 2 子图（前端 viz 拓扑渲染依赖该结构）；
+        无边向量命中 / 种子节点已不在图中（向量-图谱不同步）→ 返回空
+        visualization 与提示，**不**回退文本匹配。
+        """
+        from src.rag.edge_vector_store import edge_search
+
+        edge_hits = edge_search(query, top_k=3)
+        seed_ids: list[str] = []
+        seen: set[str] = set()
+        for hit in edge_hits:
+            for seed in (hit.get("source"), hit.get("target")):
+                if seed and seed not in seen:
+                    seen.add(seed)
+                    seed_ids.append(seed)
+
+        if not seed_ids:
+            return {
+                "message": f"未找到与 '{query}' 相关的知识图谱信息（边向量无命中，已断名字匹配路径）。",
+                "matched_nodes": [],
+                "center_node": None,
+                "visualization": {"nodes": [], "edges": []},
+                "total_matches": 0,
+                "vector_seeded": True,
+            }
+
+        center: Optional[str] = None
+        visualization: dict = {"nodes": [], "edges": []}
+        for candidate in seed_ids:
+            try:
+                viz = graph.get_subgraph_for_visualization(candidate, depth=2)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("vector-seeded general: 子图展开失败 seed={}: {}", candidate, exc)
+                continue
+            if viz.get("nodes"):
+                center = candidate
+                visualization = viz
+                break
+
+        if center is None:
+            return {
+                "message": f"边向量命中节点 {seed_ids} 在当前图谱中不存在，无法展开子图。",
+                "matched_nodes": seed_ids,
+                "center_node": None,
+                "visualization": visualization,
+                "total_matches": len(seed_ids),
+                "vector_seeded": True,
+            }
+
+        return {
+            "message": (
+                f"由边向量命中种子节点 '{center}' 展开 {len(visualization.get('nodes', []))} 个节点的关联子图。"
+            ),
+            "matched_nodes": seed_ids,
+            "center_node": center,
+            "visualization": visualization,
+            "total_matches": len(seed_ids),
+            "vector_seeded": True,
+        }
+
+    @staticmethod
+    def _vector_seeds(query: str, top_k: int = 5) -> list:
+        """边向量命中边 → source/target 节点种子（按命中分降序去重）。
+
+        结构化查询类型（fault_cause/standards/equipment_chain）的向量种子入口，
+        取代原 match_nodes_by_text 名字匹配。无向量命中 / 开关关 / embedding 失败
+        → 返回 []（不文本匹配回退），下游 from_nodes 结构化展开自然得空结果。
+        """
+        from src.rag.edge_vector_store import edge_search
+
+        seeds: list = []
+        seen: set = set()
+        for hit in edge_search(query, top_k=top_k):
+            for node_id in (hit.get("source"), hit.get("target")):
+                if node_id and node_id not in seen:
+                    seen.add(node_id)
+                    seeds.append(node_id)
+        return seeds
 
     @staticmethod
     def _attach_semantic_hits(result: dict, query: str) -> dict:

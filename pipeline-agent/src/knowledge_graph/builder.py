@@ -177,15 +177,52 @@ class KnowledgeGraphBuilder:
 
         return matched
 
-    def query_fault_causes(self, fault_name: str) -> List[dict]:
-        """Find causes and solutions for a given fault name."""
+    def fault_causes_from_nodes(self, candidate_node_ids: List[str]) -> List[dict]:
+        """故障-原因结构化展开（纯结构操作，不含名字匹配召回）。
+
+        从候选节点做有界回溯（≤2 跳）归一化到 FAULT 节点（去重保序）并展开
+        caused_by → solved_by，附故障节点上的共享关系（shared_cause/shared_solution/
+        related_fault）；结果结构与原 query_fault_causes 一致。候选由调用方给出
+        （通常为向量检索命中边的 source/target——solved_by 边的端点是 cause/solution，
+        fault 节点要回走 1~2 跳）：fault 直接取；cause 沿 caused_by 回走 1 跳；
+        solution 沿 solved_by→caused_by 回走 2 跳；其他类型（doc/sec/concept 等）
+        不参与。原 query_fault_causes(text) =
+        fault_causes_from_nodes(match_nodes_by_text(text))。
+        """
 
         self.ensure_ready()
-        matched_faults = [
-            node_id
-            for node_id in self.match_nodes_by_text(fault_name)
-            if self.graph.nodes[node_id].get("type") == NodeType.FAULT.value
-        ]
+        matched_faults: List[str] = []
+        candidate_seen: Set[str] = set()
+        for node_id in candidate_node_ids:
+            if node_id in candidate_seen or node_id not in self.graph:
+                continue
+            candidate_seen.add(node_id)
+            node_type = self.graph.nodes[node_id].get("type")
+            if node_type == NodeType.FAULT.value:
+                faults: List[str] = [node_id]
+            elif node_type == NodeType.CAUSE.value:
+                # fault --caused_by--> cause：入边回走 1 跳
+                faults = [
+                    predecessor_id
+                    for predecessor_id, _, edge in self.graph.in_edges(node_id, data=True)
+                    if edge.get("type") == EdgeType.CAUSED_BY.value
+                ]
+            elif node_type == NodeType.SOLUTION.value:
+                # fault --caused_by--> cause --solved_by--> solution：入边回走 2 跳
+                faults = []
+                for cause_id, _, edge in self.graph.in_edges(node_id, data=True):
+                    if edge.get("type") != EdgeType.SOLVED_BY.value:
+                        continue
+                    faults.extend(
+                        fault_id
+                        for fault_id, _, caused in self.graph.in_edges(cause_id, data=True)
+                        if caused.get("type") == EdgeType.CAUSED_BY.value
+                    )
+            else:
+                faults = []
+            for fault_id in faults:
+                if fault_id in self.graph and fault_id not in matched_faults:
+                    matched_faults.append(fault_id)
 
         # 跨故障共享关系（G-E7 报告核心价值）：同一 fault 节点上挂的
         # shared_cause/shared_solution/related_fault 边，附在每条结果上，
@@ -269,15 +306,57 @@ class KnowledgeGraphBuilder:
         results.sort(key=lambda item: item.get("probability", 0), reverse=True)
         return results
 
-    def query_equipment_chain(self, pipeline_text: str) -> dict:
-        """Return pipeline -> station -> pump chain."""
+    def query_fault_causes(self, fault_name: str) -> List[dict]:
+        """Find causes and solutions for a given fault name.（旧名字匹配入口；
+        检索面已切到 向量种子 + fault_causes_from_nodes，此方法仅离线评测/兜底用。）"""
+
+        return self.fault_causes_from_nodes(self.match_nodes_by_text(fault_name))
+
+    def equipment_chain_from_nodes(self, candidate_node_ids: List[str]) -> dict:
+        """设备链路结构化展开（纯结构操作，不含名字匹配召回）。
+
+        从候选节点做有界回溯（≤2 跳）归一化到 PIPELINE 节点并展开 pipeline
+        --contains--> station --installed--> pump；结果结构与原 query_equipment_chain
+        一致。候选由调用方给出（通常为向量检索命中边的 source/target——installed
+        边端点是 station/pump，pipeline 要回走 1~2 跳）：pipeline 直接取；
+        pump_station 沿 contains 回走 1 跳；pump 沿 installed→contains 回走 2 跳；
+        其他类型不参与。原 query_equipment_chain(text) =
+        equipment_chain_from_nodes(match_nodes_by_text(text))。
+        """
 
         self.ensure_ready()
-        pipeline_nodes = [
-            node_id
-            for node_id in self.match_nodes_by_text(pipeline_text)
-            if self.graph.nodes[node_id].get("type") == NodeType.PIPELINE.value
-        ]
+        pipeline_nodes: List[str] = []
+        candidate_seen: Set[str] = set()
+        for node_id in candidate_node_ids:
+            if node_id in candidate_seen or node_id not in self.graph:
+                continue
+            candidate_seen.add(node_id)
+            node_type = self.graph.nodes[node_id].get("type")
+            if node_type == NodeType.PIPELINE.value:
+                pipelines: List[str] = [node_id]
+            elif node_type == NodeType.PUMP_STATION.value:
+                # pipeline --contains--> station：入边回走 1 跳
+                pipelines = [
+                    predecessor_id
+                    for predecessor_id, _, edge in self.graph.in_edges(node_id, data=True)
+                    if edge.get("type") == EdgeType.CONTAINS.value
+                ]
+            elif node_type == NodeType.PUMP.value:
+                # pipeline --contains--> station --installed--> pump：入边回走 2 跳
+                pipelines = []
+                for station_id, _, edge in self.graph.in_edges(node_id, data=True):
+                    if edge.get("type") != EdgeType.INSTALLED.value:
+                        continue
+                    pipelines.extend(
+                        pipeline_id
+                        for pipeline_id, _, contained in self.graph.in_edges(station_id, data=True)
+                        if contained.get("type") == EdgeType.CONTAINS.value
+                    )
+            else:
+                pipelines = []
+            for pipeline_id in pipelines:
+                if pipeline_id in self.graph and pipeline_id not in pipeline_nodes:
+                    pipeline_nodes.append(pipeline_id)
 
         if not pipeline_nodes:
             return {"pipeline": None, "pump_stations": []}
@@ -303,38 +382,73 @@ class KnowledgeGraphBuilder:
 
         return chain
 
-    def find_related_standards(self, parameter_text: str) -> List[dict]:
-        """Find standards related to parameter-like nodes."""
+    def query_equipment_chain(self, pipeline_text: str) -> dict:
+        """Return pipeline -> station -> pump chain.（旧名字匹配入口；
+        检索面已切到 向量种子 + equipment_chain_from_nodes，此方法仅离线评测/兜底用。）"""
+
+        return self.equipment_chain_from_nodes(self.match_nodes_by_text(pipeline_text))
+
+    def standards_from_nodes(self, candidate_node_ids: List[str]) -> List[dict]:
+        """标准引用结构化展开（纯结构操作，不含名字匹配召回）。
+
+        从候选节点做有界回溯（≤1 跳）归一化到 STANDARD 节点，再沿 SPECIFIES
+        前向展开；结果结构与原 find_related_standards 一致（每条 = 一个标准的
+        一个 specifies 目标）。候选由调用方给出（通常为向量检索命中边的
+        source/target——specifies 边端点是 standard 或 parameter/fault）：
+        standard 直接取；parameter/其他节点沿 specifies 入边回溯 1 跳；其他
+        类型不参与。原 find_related_standards(text) =
+        standards_from_nodes(match_nodes_by_text(text))。
+        """
 
         self.ensure_ready()
-        parameter_ids = [
-            node_id
-            for node_id in self.match_nodes_by_text(parameter_text)
-            if self.graph.nodes[node_id].get("type") == NodeType.PARAMETER.value
-        ]
+        standard_ids: List[str] = []
+        candidate_seen: Set[str] = set()
+        for node_id in candidate_node_ids:
+            if node_id in candidate_seen or node_id not in self.graph:
+                continue
+            candidate_seen.add(node_id)
+            node_type = self.graph.nodes[node_id].get("type")
+            standards: List[str] = (
+                [node_id]
+                if node_type == NodeType.STANDARD.value
+                else [
+                    source_id
+                    for source_id, _, edge in self.graph.in_edges(node_id, data=True)
+                    if edge.get("type") == EdgeType.SPECIFIES.value
+                ]
+            )
+            for std_id in standards:
+                if std_id in self.graph and std_id not in standard_ids:
+                    standard_ids.append(std_id)
 
         standards: List[dict] = []
         visited: Set[str] = set()
 
-        for parameter_id in parameter_ids:
-            for source_id, _, edge in self.graph.in_edges(parameter_id, data=True):
+        for standard_id in standard_ids:
+            if standard_id in visited:
+                continue
+            visited.add(standard_id)
+
+            node = self.graph.nodes[standard_id]
+            for target_id, _, edge in self.graph.out_edges(standard_id, data=True):
                 if edge.get("type") != EdgeType.SPECIFIES.value:
                     continue
-                if source_id in visited:
-                    continue
-                visited.add(source_id)
-
-                node = self.graph.nodes[source_id]
                 standards.append(
                     {
-                        "id": source_id,
-                        "name": node.get("name", source_id),
+                        "id": standard_id,
+                        "name": node.get("name", standard_id),
                         "threshold": edge.get("threshold"),
-                        "parameter": self.graph.nodes[parameter_id].get("name", parameter_id),
+                        "parameter": self.graph.nodes[target_id].get("name", target_id),
                     }
                 )
 
         return standards
+
+    def find_related_standards(self, parameter_text: str) -> List[dict]:
+        """Find standards related to parameter-like nodes.（旧名字匹配入口；
+        检索面已切到 向量种子 + standards_from_nodes，此方法仅离线评测/兜底用。）"""
+
+        return self.standards_from_nodes(self.match_nodes_by_text(parameter_text))
 
     def get_subgraph_for_visualization(self, center_node: str, depth: int = 2) -> dict:
         """Return nodes/edges payload for graph visualization.
