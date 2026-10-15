@@ -213,6 +213,12 @@ export interface HydraulicAnalysisResult {
 
 export interface OptimizationParams {
   projectId?: number;
+  objectiveStrategy?: 'ENERGY' | 'BALANCED' | 'STABLE' | string;
+  minEndPressure?: number;
+  maxEndPressure?: number;
+  maxPump480Num?: number;
+  maxPump375Num?: number;
+  robustnessPercent?: number;
   flowRate: number;
   density: number;
   viscosity: number;
@@ -232,6 +238,12 @@ export interface OptimizationParams {
 }
 
 export interface OptimizationCandidateResult {
+  score?: number;
+  pressureMargin?: number;
+  robustMinEndPressure?: number;
+  robustFeasible?: boolean;
+  energySavingPercent?: number;
+  recommendationLabel?: string;
   pump480Num: number;
   pump375Num: number;
   totalHead: number;
@@ -246,6 +258,79 @@ export interface OptimizationCandidateResult {
 
 export interface OptimizationResult extends Omit<OptimizationCandidateResult, 'recommended'> {
   candidates?: OptimizationCandidateResult[];
+  objectiveStrategy?: string;
+  feasibleCount?: number;
+  robustFeasibleCount?: number;
+}
+
+export interface CapacityEvaluationParams {
+  projectId?: number;
+  projectName?: string;
+  baseParams: HydraulicAnalysisParams;
+  minFlowRate?: number;
+  maxFlowRate?: number;
+  flowStep?: number;
+  minEndPressure?: number;
+  maxEndPressure?: number;
+  maxVelocity?: number;
+}
+
+export interface CapacityPoint {
+  flowRate: number;
+  velocity: number;
+  endStationPressure: number;
+  pressureMargin: number;
+  frictionHeadLoss: number;
+  hydraulicSlope: number;
+  reynoldsNumber: number;
+  flowRegime: string;
+  feasible: boolean;
+  constraintMessage: string;
+}
+
+export interface CapacityEvaluationResult {
+  baseResult: HydraulicAnalysisResult;
+  points: CapacityPoint[];
+  feasibleMinFlow?: number;
+  feasibleMaxFlow?: number;
+  recommendedFlow?: number;
+  minEndPressure: number;
+  maxEndPressure?: number;
+  maxVelocity?: number;
+  totalCalculations: number;
+  bottleneck: string;
+  conclusion: string;
+}
+
+export interface TransientRiskParams {
+  projectId?: number;
+  projectName?: string;
+  baseParams: HydraulicAnalysisParams;
+  eventType: 'PUMP_TRIP' | 'VALVE_CLOSURE';
+  flowChangePercent: number;
+  eventDurationSeconds: number;
+  waveSpeed: number;
+  minAllowableHead: number;
+  maxAllowableHead?: number;
+}
+
+export interface TransientRiskResult {
+  baseResult: HydraulicAnalysisResult;
+  eventType: string;
+  baseVelocity: number;
+  waveSpeed: number;
+  criticalDurationSeconds: number;
+  eventDurationSeconds: number;
+  flowChangePercent: number;
+  surgeHead: number;
+  predictedMaximumHead: number;
+  predictedMinimumHead: number;
+  maxAllowableHead?: number;
+  minAllowableHead: number;
+  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  pressureBoundaryExceeded: boolean;
+  conclusion: string;
+  recommendation: string;
 }
 
 export interface SensitivityVariableConfig {
@@ -271,6 +356,10 @@ export interface SensitivityParams {
   baseParams: HydraulicAnalysisParams;
   variables: SensitivityVariableConfig[];
   analysisType: 'SINGLE' | 'MULTI' | 'CROSS';
+  pressureLowerBound?: number;
+  pressureUpperBound?: number;
+  morrisTrajectories?: number;
+  morrisLevels?: number;
 }
 
 export interface SensitivityResult {
@@ -279,6 +368,8 @@ export interface SensitivityResult {
   sensitivityRanking: SensitivityRanking[];
   duration: number;
   totalCalculations: number;
+  pressureLowerBound?: number;
+  pressureUpperBound?: number;
 }
 
 export interface VariableSensitivityResult {
@@ -290,6 +381,12 @@ export interface VariableSensitivityResult {
   sensitivityCoefficient: number;
   trend: string;
   maxImpactPercent: number;
+  pressureSensitivityCoefficient?: number;
+  morrisMuStar?: number;
+  morrisSigma?: number;
+  riskLevel?: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  recommendation?: string;
+  unsafePointCount?: number;
 }
 
 export interface SensitivityPoint {
@@ -302,6 +399,7 @@ export interface SensitivityPoint {
   hydraulicSlope: number;
   reynoldsNumber: number;
   flowRegime: string;
+  pressureUnsafe?: boolean;
   fullResult: HydraulicAnalysisResult;
 }
 

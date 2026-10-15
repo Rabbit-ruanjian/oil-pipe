@@ -10,6 +10,8 @@ export default defineConfig(({ mode }) => {
   return {
   plugins: [react()],
   server: {
+    port: 7892,
+    host: '0.0.0.0',
     proxy: {
       '/auth': {
         target: gatewayTarget,

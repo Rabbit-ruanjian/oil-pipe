@@ -2,6 +2,8 @@
 import type { AxiosRequestConfig } from 'axios';
 import type {
   CalculationHistory,
+  CapacityEvaluationParams,
+  CapacityEvaluationResult,
   HydraulicAnalysisParams,
   HydraulicAnalysisResult,
   KnowledgeDocument,
@@ -19,6 +21,8 @@ import type {
   SaveReportRequest,
   SensitivityResult,
   SensitivityVariableInfo,
+  TransientRiskParams,
+  TransientRiskResult,
 } from '../types';
 
 export const authApi = {
@@ -82,6 +86,14 @@ export const calculationApi = {
   ) =>
     http.post<R<OptimizationResult>>('/calculation/optimization', params, {
       ...requestConfig,
+      params: projectName ? { projectName } : undefined,
+    }),
+  evaluateCapacity: (params: CapacityEvaluationParams, projectName?: string) =>
+    http.post<R<CapacityEvaluationResult>>('/calculation/capacity/evaluate', params, {
+      params: projectName ? { projectName } : undefined,
+    }),
+  evaluateTransientRisk: (params: TransientRiskParams, projectName?: string) =>
+    http.post<R<TransientRiskResult>>('/calculation/risk/transient', params, {
       params: projectName ? { projectName } : undefined,
     }),
   sensitivityAnalysis: (params: Record<string, unknown>) =>

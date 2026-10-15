@@ -12,8 +12,12 @@ import org.springframework.util.StringUtils;
 
 import com.pipeline.calculation.domain.HydraulicAnalysisParams;
 import com.pipeline.calculation.domain.HydraulicAnalysisResult;
+import com.pipeline.calculation.domain.CapacityEvaluationParams;
+import com.pipeline.calculation.domain.CapacityEvaluationResult;
 import com.pipeline.calculation.domain.OptimizationParams;
 import com.pipeline.calculation.domain.OptimizationResult;
+import com.pipeline.calculation.domain.TransientRiskParams;
+import com.pipeline.calculation.domain.TransientRiskResult;
 import com.pipeline.calculation.service.ICalculationService;
 import com.pipeline.calculation.service.ICalculationHistoryService;
 import com.pipeline.common.core.domain.Result;
@@ -107,6 +111,34 @@ public class CalculationController {
                 params);
 
         Result<OptimizationResult> result = calculationService.optimizeOperation(params);
+        updateHistory(historyId, result, startTime);
+        return result;
+    }
+
+    @Operation(summary = "输送能力窗口评估", description = "固定项目当前泵组，扫描真实流量区间并识别压力与流速约束下的可行输送窗口")
+    @PostMapping("/capacity/evaluate")
+    public Result<CapacityEvaluationResult> capacityEvaluate(
+            @RequestBody @Valid CapacityEvaluationParams params,
+            @RequestParam(value = "projectName", required = false) String projectName,
+            @RequestParam(value = "userId", required = false, defaultValue = "1") Long userId,
+            @RequestParam(value = "userName", required = false, defaultValue = "admin") String userName) {
+        long startTime = System.currentTimeMillis();
+        Long historyId = createHistory("CAPACITY", params.getProjectId(), StringUtils.hasText(projectName) ? projectName : "输送能力窗口评估", userId, userName, params);
+        Result<CapacityEvaluationResult> result = calculationService.evaluateCapacity(params);
+        updateHistory(historyId, result, startTime);
+        return result;
+    }
+
+    @Operation(summary = "启停冲击风险评估", description = "基于压力波近似评估泵跳停或阀门快速关闭造成的压力冲击")
+    @PostMapping("/risk/transient")
+    public Result<TransientRiskResult> transientRisk(
+            @RequestBody @Valid TransientRiskParams params,
+            @RequestParam(value = "projectName", required = false) String projectName,
+            @RequestParam(value = "userId", required = false, defaultValue = "1") Long userId,
+            @RequestParam(value = "userName", required = false, defaultValue = "admin") String userName) {
+        long startTime = System.currentTimeMillis();
+        Long historyId = createHistory("TRANSIENT_RISK", params.getProjectId(), StringUtils.hasText(projectName) ? projectName : "启停冲击风险评估", userId, userName, params);
+        Result<TransientRiskResult> result = calculationService.evaluateTransientRisk(params);
         updateHistory(historyId, result, startTime);
         return result;
     }
