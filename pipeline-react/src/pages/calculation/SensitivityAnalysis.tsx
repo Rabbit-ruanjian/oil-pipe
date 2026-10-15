@@ -126,7 +126,9 @@ export default function TransientRisk() {
   const submit = async () => {
     try {
       const values = await form.validateFields();
-      if (!Number.isFinite(values.flowRate) || values.flowRate <= 0) {
+      const allValues = form.getFieldsValue(true) as FormValues;
+      const mergedValues = { ...allValues, ...values };
+      if (!Number.isFinite(mergedValues.flowRate) || mergedValues.flowRate <= 0) {
         message.error("请输入大于 0 的基准流量");
         return;
       }
@@ -142,7 +144,7 @@ export default function TransientRisk() {
         minAllowableHead,
         maxAllowableHead,
         ...baseParams
-      } = values;
+      } = mergedValues;
       const payload: TransientRiskParams = {
         projectId: projectId ?? undefined,
         projectName: project?.name,
