@@ -9,7 +9,6 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Tag,
   message,
 } from 'antd';
@@ -28,6 +27,18 @@ type OptimizationFormValues = OptimizationParams & {
   pipelineId?: number;
   oilId?: number;
   pumpStationId?: number;
+};
+
+type StrategyCandidate = {
+  pump480Num: number;
+  pump375Num: number;
+  totalHead: number;
+  endPressure: number;
+  friction: number;
+  annualEnergy: number;
+  annualCost: number;
+  unitEnergy: number;
+  feasible: boolean;
 };
 
 const INITIAL_VALUES: OptimizationParams = {
@@ -60,6 +71,8 @@ export default function Optimization() {
   const [stations, setStations] = useState<PumpStation[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [candidates, setCandidates] = useState<StrategyCandidate[]>([]);
+  const [selectedCandidate, setSelectedCandidate] = useState<StrategyCandidate | null>(null);
 
   const loadBaseData = useCallback(async () => {
     const [projectRes, oilRes, stationRes] = await Promise.all([
@@ -189,6 +202,22 @@ export default function Optimization() {
       const response = await calculationApi.optimization(payload, project?.name);
       const nextResult = response.data ?? null;
       setResult(nextResult);
+      const pumpCombos = [[0, 1], [0, 2], [0, 3], [1, 0], [1, 1], [1, 2], [1, 3]];
+      const candidateResults = await Promise.all(pumpCombos.map(async ([pump480Num, pump375Num]) => {
+        const hydraulic = (await calculationApi.hydraulicAnalysis({ ...payload, pump480Num, pump375Num }, project?.name)).data;
+        if (!hydraulic) return null;
+        const flowM3s = Number(payload.flowRate) / 3600;
+        const efficiency = Math.max(Number(payload.pumpEfficiency ?? 0.8) * Number(payload.motorEfficiency ?? 0.95), 0.01);
+        const powerKw = Number(payload.density) * 9.81 * flowM3s * Number(hydraulic.totalHead) / efficiency / 1000;
+        const annualEnergy = powerKw * Number(payload.workingDays ?? 350) * 24;
+        const annualCost = annualEnergy * Number(payload.electricityPrice ?? 0.8);
+        const unitEnergy = Number(payload.flowRate) > 0 ? powerKw / Number(payload.flowRate) : 0;
+        return { pump480Num, pump375Num, totalHead: Number(hydraulic.totalHead), endPressure: Number(hydraulic.endStationInPressure), friction: Number(hydraulic.frictionHeadLoss), annualEnergy, annualCost, unitEnergy, feasible: hydraulic.endStationInPressure > 0 && pump480Num + pump375Num > 0 } satisfies StrategyCandidate;
+      }));
+      const nextCandidates = candidateResults.filter((item): item is StrategyCandidate => Boolean(item));
+      setCandidates(nextCandidates);
+      const recommended = nextCandidates.find((item) => item.pump480Num === nextResult?.pump480Num && item.pump375Num === nextResult?.pump375Num) ?? nextCandidates[0] ?? null;
+      setSelectedCandidate(recommended);
       if (nextResult) {
         useCalculationLinkStore.getState().linkCalculation({
           calcType: 'OPTIMIZATION',
@@ -206,28 +235,18 @@ export default function Optimization() {
   };
 
   const chartOption = useMemo(() => {
-    if (!result) {
+    if (!candidates.length) {
       return null;
     }
 
     return {
-      tooltip: { trigger: 'axis' },
-      xAxis: {
-        type: 'category',
-        data: ['总扬程', '总压降', '末站进站压力'],
-      },
-      yAxis: {
-        type: 'value',
-        name: '压头 / 扬程 (m)',
-      },
-      series: [
-        {
-          type: 'bar',
-          data: [result.totalHead, result.totalPressureDrop, result.endStationInPressure],
-        },
-      ],
+      tooltip: { trigger: 'item', formatter: (params: { data: [number, number, string] }) => `${params.data[2]}<br/>单位能耗：${params.data[0].toFixed(3)}<br/>末站压力：${params.data[1].toFixed(2)} m` },
+      grid: { left: 58, right: 24, top: 38, bottom: 48 },
+      xAxis: { type: 'value', name: '单位输量能耗', nameLocation: 'middle', nameGap: 28 },
+      yAxis: { type: 'value', name: '末站压力 / m' },
+      series: [{ type: 'scatter', symbolSize: 18, data: candidates.map((item) => ({ value: [item.unitEnergy, item.endPressure, `${item.pump480Num}×480 + ${item.pump375Num}×375`], itemStyle: { color: item.pump480Num === result?.pump480Num && item.pump375Num === result?.pump375Num ? '#f59e0b' : item.feasible ? '#22c55e' : '#ef4444' } })) }],
     };
-  }, [result]);
+  }, [candidates, result]);
 
   return (
     <AnimatedPage>
@@ -342,28 +361,11 @@ export default function Optimization() {
         <div className={styles.resultPanel}>
           {result ? (
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <Card
-                title="推荐方案"
-                className="page-card"
-                extra={<Tag color={result.isFeasible ? 'success' : 'error'}>{result.isFeasible ? '可行方案' : '不可行方案'}</Tag>}
-              >
-                <Row gutter={16}>
-                  <Col span={8}><Statistic title="ZMI480 台数" value={result.pump480Num} /></Col>
-                  <Col span={8}><Statistic title="ZMI375 台数" value={result.pump375Num} /></Col>
-                  <Col span={8}><Statistic title="年能耗(kWh)" value={Number(result.totalEnergyConsumption)} precision={2} /></Col>
-                </Row>
-                <Descriptions column={2} bordered style={{ marginTop: 16 }}>
-                  <Descriptions.Item label="总扬程">{result.totalHead}</Descriptions.Item>
-                  <Descriptions.Item label="总压降">{result.totalPressureDrop}</Descriptions.Item>
-                  <Descriptions.Item label="末站进站压头">{result.endStationInPressure}</Descriptions.Item>
-                  <Descriptions.Item label="预计总成本">{result.totalCost}</Descriptions.Item>
-                  <Descriptions.Item label="推荐说明" span={2}>{result.description}</Descriptions.Item>
-                </Descriptions>
-              </Card>
-
-              <Card title="方案关键指标" className="page-card">
-                {chartOption && <ReactECharts option={chartOption} style={{ height: 320 }} />}
-              </Card>
+              <div className={styles.recommendationHero}><div style={{ fontSize: 12, opacity: 0.78 }}>系统推荐运行策略</div><div style={{ fontSize: 28, fontWeight: 700, marginTop: 6 }}>{result.pump480Num} × ZMI480 + {result.pump375Num} × ZMI375</div><div style={{ marginTop: 8, opacity: 0.88 }}>{result.description || '满足基本压力约束的综合候选方案'}</div></div>
+              <div className={styles.metricGrid}><div className={styles.metricCard}><div className={styles.metricLabel}>推荐末站压力</div><div className={styles.metricValue}>{Number(result.endStationInPressure).toFixed(2)} m</div></div><div className={styles.metricCard}><div className={styles.metricLabel}>总扬程</div><div className={styles.metricValue}>{Number(result.totalHead).toFixed(2)} m</div></div><div className={styles.metricCard}><div className={styles.metricLabel}>年能耗</div><div className={styles.metricValue}>{Number(result.totalEnergyConsumption).toLocaleString()} kWh</div></div><div className={styles.metricCard}><div className={styles.metricLabel}>预计成本</div><div className={styles.metricValue}>¥{Number(result.totalCost).toLocaleString()}</div></div></div>
+              <Card title="泵组策略对比" className="page-card"><Row gutter={[12, 12]}>{candidates.map((candidate) => { const recommended = candidate.pump480Num === result.pump480Num && candidate.pump375Num === result.pump375Num; const selected = selectedCandidate?.pump480Num === candidate.pump480Num && selectedCandidate?.pump375Num === candidate.pump375Num; return <Col xs={24} sm={12} lg={8} key={`${candidate.pump480Num}-${candidate.pump375Num}`}><Card size="small" onClick={() => setSelectedCandidate(candidate)} className={`${styles.strategyCard} ${selected ? styles.strategyCardSelected : ''}`} title={<Space><span>{candidate.pump480Num}×480 + {candidate.pump375Num}×375</span>{recommended && <Tag color="gold">推荐</Tag>}</Space>}><Space direction="vertical" size={4}><span>末站压力：{candidate.endPressure.toFixed(2)} m</span><span>单位能耗：{candidate.unitEnergy.toFixed(3)}</span><span>年成本：¥{candidate.annualCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span><Tag color={candidate.feasible ? 'success' : 'error'}>{candidate.feasible ? '满足约束' : '不可行'}</Tag></Space></Card></Col>; })}</Row></Card>
+              <Card title="能效—压力策略前沿" className="page-card">{chartOption && <ReactECharts option={chartOption} style={{ height: 340 }} />}</Card>
+              {selectedCandidate && <Card title="当前选中策略的计算证据" className="page-card"><Descriptions column={2} bordered><Descriptions.Item label="泵组">{selectedCandidate.pump480Num} × ZMI480 + {selectedCandidate.pump375Num} × ZMI375</Descriptions.Item><Descriptions.Item label="方案状态">{selectedCandidate.feasible ? '满足约束' : '不可行'}</Descriptions.Item><Descriptions.Item label="总扬程">{selectedCandidate.totalHead.toFixed(2)} m</Descriptions.Item><Descriptions.Item label="末站压力">{selectedCandidate.endPressure.toFixed(2)} m</Descriptions.Item><Descriptions.Item label="沿程摩阻">{selectedCandidate.friction.toFixed(2)} m</Descriptions.Item><Descriptions.Item label="年能耗">{selectedCandidate.annualEnergy.toLocaleString(undefined, { maximumFractionDigits: 0 })} kWh</Descriptions.Item></Descriptions></Card>}
             </Space>
           ) : (
             <Card className="page-card" style={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

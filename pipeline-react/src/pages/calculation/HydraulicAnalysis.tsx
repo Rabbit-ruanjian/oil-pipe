@@ -1,6 +1,7 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRef } from 'react';
 import {
+  Button,
   Card,
   Col,
   Form,
@@ -11,7 +12,7 @@ import {
   Tag,
   message,
 } from 'antd';
-import { ThunderboltOutlined } from '@ant-design/icons';
+import { CalculatorOutlined, ThunderboltOutlined } from '@ant-design/icons';
 import ReactECharts from 'echarts-for-react';
 import { calculationApi, oilPropertyApi, pipelineApi, projectApi, pumpStationApi } from '../../api';
 import type {
@@ -386,11 +387,6 @@ export default function HydraulicAnalysis() {
       return;
     }
 
-    // 油品和泵站是报告可信度的关键来源。未选择时不使用页面默认值自动生成计算记录。
-    if (!values.oilId || !values.pumpStationId) {
-      return;
-    }
-
     const payload = {
       ...values,
       projectId: selectedProjectId ?? values.projectId,
@@ -639,7 +635,7 @@ export default function HydraulicAnalysis() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="oilId" label="油品参数" rules={[{ required: true, message: '请选择油品参数' }]}>
+                  <Form.Item name="oilId" label="油品参数" extra="用于记录分析来源，不影响数值计算">
                     <Select<number>
                       allowClear
                       placeholder="从数据中心带入油品参数"
@@ -649,7 +645,7 @@ export default function HydraulicAnalysis() {
                   </Form.Item>
                 </Col>
                 <Col span={12}>
-                  <Form.Item name="pumpStationId" label="泵站参数" rules={[{ required: true, message: '请选择泵站参数' }]}>
+                  <Form.Item name="pumpStationId" label="泵站参数" extra="用于带入泵组扬程与首站压力">
                     <Select<number>
                       allowClear
                       placeholder="从数据中心带入泵站参数"
@@ -719,6 +715,15 @@ export default function HydraulicAnalysis() {
               <div className={styles.autoHint}>
                 <ThunderboltOutlined /> 修改参数或拖动流量滑块，右侧结果将自动联动更新
                 {loading ? <span>正在计算…</span> : null}
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<CalculatorOutlined />}
+                  loading={loading}
+                  onClick={() => void runAnalysis()}
+                >
+                  开始分析
+                </Button>
               </div>
             </Form>
           </Card>

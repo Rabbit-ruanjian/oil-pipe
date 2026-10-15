@@ -315,10 +315,11 @@ export default function PipelineList() {
           <div className={styles.headerTop}>
             <div className={styles.headerInfo}>
               <h1 className={styles.title}>
-                <span className={styles.titleAccent}>管道参数</span>
+                <span className={styles.titleAccent}>数据管理</span>
+                <span className={styles.titleTag}>统一数据中台</span>
               </h1>
               <p className={styles.subtitle}>
-                管理数据库中全部项目的管道参数，并自动同步最新的管径、长度、壁厚、输量与高程数据。
+                统一管理项目、管道、泵站与油品物性等基础数据，为水力分析、敏感性分析与泵站优化提供一致的参数源。
               </p>
             </div>
             <div className={styles.headerActions}>

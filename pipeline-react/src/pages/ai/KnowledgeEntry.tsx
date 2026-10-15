@@ -3,18 +3,14 @@ import type { UploadFile, UploadProps } from 'antd';
 import {
   Alert,
   Button,
-  Card,
-  Col,
   Drawer,
   Empty,
   Form,
   Input,
   Popconfirm,
   Progress,
-  Row,
   Select,
   Space,
-  Statistic,
   Table,
   Tag,
   Typography,
@@ -23,19 +19,15 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import {
-  ClockCircleOutlined,
   CloudUploadOutlined,
-  DatabaseOutlined,
   DeleteOutlined,
   FileSearchOutlined,
-  FileTextOutlined,
   InboxOutlined,
   ReloadOutlined,
   SyncOutlined,
 } from '@ant-design/icons';
 import { knowledgeDocumentApi } from '../../api';
 import AnimatedPage from '../../components/common/AnimatedPage';
-import PageHeader from '../../components/common/PageHeader';
 import type { KnowledgeDocument, KnowledgeIngestTask } from '../../types';
 import KnowledgeBase from '../data/KnowledgeBase';
 
@@ -545,134 +537,42 @@ export default function KnowledgeEntry() {
     },
   ];
 
+  const processingCount = documents.filter((item) => item.status === 'PROCESSING' || item.status === 'UPLOADED').length;
+  const indexedCount = documents.filter((item) => item.status === 'INDEXED').length;
+  const failedCount = documents.filter((item) => item.status === 'FAILED').length;
+  const chunkTotal = documents.reduce((sum, item) => sum + (item.chunkCount ?? 0), 0);
+
   return (
-    <AnimatedPage className="mx-auto flex w-full max-w-[1360px] flex-col gap-6 px-4 py-6 md:px-6">
-      <PageHeader
-        title="知识库录入"
-        actions={
-          <Space wrap>
-            <Button icon={<ReloadOutlined />} onClick={() => void loadDocuments()} loading={loading}>
-              刷新状态
-            </Button>
-            <Button type="primary" icon={<CloudUploadOutlined />} onClick={() => void handleSubmit()} loading={submitting}>
-              提交入库
-            </Button>
-          </Space>
-        }
-      />
-
-      {loadError ? (
-        <Alert
-          type="error"
-          showIcon
-          message="知识库列表加载失败"
-          description={loadError}
-        />
-      ) : null}
-
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} xl={6}>
-          <Card>
-            <Statistic title="知识文档总数" value={documents.length} prefix={<FileTextOutlined />} />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card>
-            <Statistic
-              title="后台处理中"
-              value={documents.filter((item) => item.status === 'PROCESSING' || item.status === 'UPLOADED').length}
-              prefix={<ClockCircleOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card>
-            <Statistic
-              title="已完成入库"
-              value={documents.filter((item) => item.status === 'INDEXED').length}
-              prefix={<DatabaseOutlined />}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} xl={6}>
-          <Card>
-            <Statistic
-              title="失败文档"
-              value={documents.filter((item) => item.status === 'FAILED').length}
-              prefix={<SyncOutlined />}
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* 新设计:图谱 / 专家入库 / 对话自动路由(接 Python agent LangGraph 服务) */}
-      <KnowledgeBase />
-
-      <Row gutter={[16, 16]} align="stretch">
-        <Col xs={24}>
-          <Card title="资料上传">
-            <Space direction="vertical" size={20} style={{ width: '100%' }}>
-              <Dragger {...uploadProps} style={{ padding: 12 }}>
-                <p className="ant-upload-drag-icon">
-                  <InboxOutlined />
-                </p>
-                <p className="ant-upload-text">拖拽文件到这里，或点击选择一个文件</p>
-                <p className="ant-upload-hint">当前支持 PDF、DOCX、MD、TXT。提交后会进入后台任务，不再阻塞页面等待解析。</p>
-              </Dragger>
-
-              <Form<KnowledgeFormValues> form={form} layout="vertical">
-                <Row gutter={16}>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="title" label="文档标题">
-                      <Input placeholder="不填则默认使用文件名" />
-                    </Form.Item>
-                  </Col>
-                  <Col xs={24} md={12}>
-                    <Form.Item name="category" label="知识分类" rules={[{ required: true, message: '请选择知识分类' }]}>
-                      <Select options={CATEGORY_OPTIONS} />
-                    </Form.Item>
-                  </Col>
-                </Row>
-              </Form>
-            </Space>
-          </Card>
-        </Col>
-      </Row>
-
-      <Card
-        title="已录入文档"
-        extra={
-          <Space wrap>
-            <Search
-              allowClear
-              placeholder="搜索标题、文件名或标签"
-              style={{ width: 240 }}
-              value={keyword}
-              onChange={(event) => setKeyword(event.target.value)}
-            />
-            <Select
-              style={{ width: 160 }}
-              value={categoryFilter}
-              onChange={setCategoryFilter}
-              options={[{ label: '全部分类', value: 'all' }, ...CATEGORY_OPTIONS]}
-            />
-            <Select style={{ width: 140 }} value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} />
-          </Space>
-        }
-      >
-        {filteredDocuments.length > 0 ? (
-          <Table<KnowledgeDocument>
-            rowKey="id"
-            loading={loading}
-            columns={columns}
-            dataSource={filteredDocuments}
-            pagination={{ pageSize: 8, showSizeChanger: false }}
-            scroll={{ x: 1560 }}
-          />
-        ) : (
-          <Empty description="当前还没有录入任何知识文档" />
-        )}
-      </Card>
+    <AnimatedPage className="ymkb-page">
+      <style>{`
+        .ymkb-page{--ink:#0c2433;--muted:#557087;--line:#deebf1;--brand:#0e6e8c;--brand2:#0fa3c0;background:#f4f8fa;min-height:100%;padding:0 0 46px;color:var(--ink);font-family:Inter,'PingFang SC','Microsoft YaHei',sans-serif}
+        .ymkb-head{max-width:1440px;margin:0 auto;padding:28px 28px 8px}.ymkb-crumb{font-size:12px;color:#87a0b4;margin-bottom:10px}.ymkb-title{margin:0;font:900 31px Georgia,'Noto Serif SC',serif}.ymkb-title em{font:700 12px Inter,'Microsoft YaHei';font-style:normal;color:var(--brand);background:rgba(14,110,140,.1);padding:7px 12px;border-radius:999px;margin-left:10px;vertical-align:middle}.ymkb-desc{max-width:980px;margin:11px 0 0;color:var(--muted);font-size:14px;line-height:1.8}.ymkb-head-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.ymkb-main{max-width:1440px;margin:0 auto;padding:18px 28px;display:grid;grid-template-columns:350px 1fr;gap:20px;align-items:start}.ymkb-card{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px rgba(12,36,51,.05)}.ymkb-input{position:sticky;top:76px;overflow:hidden}.ymkb-input-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px}.ymkb-input-title{font-weight:800;font-size:16px}.ymkb-input-title:before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--brand);margin-right:9px}.ymkb-format{font-size:10px;color:#7790a4;white-space:nowrap}.ymkb-input-body{padding:18px 20px}.ymkb-input-body .ant-form-item{margin-bottom:13px}.ymkb-drop{border:1.5px dashed #9fc3d0;border-radius:14px;background:#f6fbfd;padding:25px 12px 20px}.ymkb-drop .ant-upload-drag-icon{margin-bottom:8px}.ymkb-drop .ant-upload-drag-icon .anticon{font-size:31px;color:var(--brand)}.ymkb-drop .ant-upload-text{font-weight:700;color:var(--ink);font-size:13px}.ymkb-drop .ant-upload-hint{font-size:11px;color:#7c94a6}.ymkb-pipeline{margin-top:14px;padding:12px;border-radius:12px;background:#f7fafb;border:1px solid var(--line)}.ymkb-pipeline-title{font-size:12px;font-weight:800;margin-bottom:8px}.ymkb-chip-row{display:flex;flex-wrap:wrap;gap:6px}.ymkb-chip{font-size:11px;padding:5px 9px;border-radius:999px;background:#eaf6f8;color:var(--brand);border:1px solid #cce8ed}.ymkb-submit{width:100%;height:43px;margin-top:16px;border:0;border-radius:11px;background:linear-gradient(135deg,var(--brand),var(--brand2));color:#fff;font-weight:800;letter-spacing:.04em}.ymkb-input-foot{border-top:1px solid var(--line);padding:13px 20px;color:#7b93a4;font-size:11px}.ymkb-content{display:flex;flex-direction:column;gap:16px}.ymkb-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.ymkb-step{padding:13px 14px;background:#fff;border:1px solid var(--line);border-radius:13px;display:flex;gap:10px;align-items:flex-start}.ymkb-step-dot{width:24px;height:24px;border-radius:8px;display:grid;place-items:center;background:#eaf1f4;color:#91a7b4;font-size:12px;font-weight:800;flex:0 0 auto}.ymkb-step.done{box-shadow:inset 3px 0 #10a37f}.ymkb-step.done .ymkb-step-dot{background:#10a37f;color:#fff}.ymkb-step.active{box-shadow:inset 3px 0 #f5b942}.ymkb-step.active .ymkb-step-dot{background:#fff3d1;color:#b57a00}.ymkb-step-title{font-size:12px;font-weight:800}.ymkb-step-note{font-size:10px;color:#7890a2;margin-top:3px;line-height:1.5}.ymkb-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.ymkb-stat{padding:15px 17px;background:#fff;border:1px solid var(--line);border-radius:13px}.ymkb-stat-v{font-size:25px;line-height:1;font-weight:900;color:var(--brand);font-variant-numeric:tabular-nums}.ymkb-stat-l{font-size:11px;color:#7c94a6;margin-top:7px}.ymkb-section{padding:18px 20px}.ymkb-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}.ymkb-section-title{font-weight:800;font-size:15px}.ymkb-section-note{font-size:11px;color:#7890a2}.ymkb-advanced{background:transparent}.ymkb-advanced > .ant-card{border-radius:18px;border-color:var(--line);box-shadow:0 8px 24px rgba(12,36,51,.05)}.ymkb-list-card .ant-card-head{border-bottom-color:var(--line)}.ymkb-list-card .ant-card-body{padding:0}.ymkb-list-tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.ymkb-list-tools .ant-input-affix-wrapper{width:240px}.ymkb-list-tools .ant-select{width:145px}.ymkb-empty{padding:30px}.ymkb-alert{max-width:1440px;margin:0 auto;padding:0 28px}.ymkb-drawer-table{min-width:650px}@media(max-width:1100px){.ymkb-main{grid-template-columns:1fr}.ymkb-input{position:static}.ymkb-steps{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.ymkb-head,.ymkb-main,.ymkb-alert{padding-left:16px;padding-right:16px}.ymkb-title{font-size:25px}.ymkb-title em{display:inline-block;margin:9px 0 0}.ymkb-stats{grid-template-columns:repeat(2,1fr)}.ymkb-steps{grid-template-columns:1fr}.ymkb-list-tools .ant-input-affix-wrapper,.ymkb-list-tools .ant-select{width:100%}}
+      `}</style>
+      <section className="ymkb-head">
+        <div className="ymkb-crumb">智能助手 / 知识库录入</div>
+        <h1 className="ymkb-title">知识库录入 <em>RAG 切片 + 图谱构建</em></h1>
+        <p className="ymkb-desc">上传规程、标准、运行手册和案例文档，系统在后台完成解析、切片、向量化、图谱构建和任务追踪；下方同时保留图谱查询、专家知识入库、自动路由与多路检索能力。</p>
+        <div className="ymkb-head-actions"><Button icon={<ReloadOutlined />} onClick={() => void loadDocuments()} loading={loading}>刷新状态</Button><Button type="primary" icon={<CloudUploadOutlined />} onClick={() => void handleSubmit()} loading={submitting}>开始录入</Button></div>
+      </section>
+      {loadError ? <div className="ymkb-alert"><Alert type="error" showIcon message="知识库列表加载失败" description={loadError} /></div> : null}
+      <main className="ymkb-main">
+        <aside className="ymkb-card ymkb-input">
+          <div className="ymkb-input-head"><span className="ymkb-input-title">文档录入</span><span className="ymkb-format">PDF / DOCX / TXT / MD</span></div>
+          <div className="ymkb-input-body">
+            <Dragger {...uploadProps} className="ymkb-drop"><p className="ant-upload-drag-icon"><InboxOutlined /></p><p className="ant-upload-text">点击选择文档，或拖拽到此处</p><p className="ant-upload-hint">支持单文件后台处理，不阻塞当前页面</p></Dragger>
+            <Form<KnowledgeFormValues> form={form} layout="vertical"><Form.Item name="title" label="文档标题"><Input placeholder="不填则默认使用文件名" /></Form.Item><Form.Item name="category" label="知识分类" rules={[{ required: true, message: '请选择知识分类' }]}><Select options={CATEGORY_OPTIONS} /></Form.Item></Form>
+            <div className="ymkb-pipeline"><div className="ymkb-pipeline-title">入库处理链路</div><div className="ymkb-chip-row"><span className="ymkb-chip">自动解析</span><span className="ymkb-chip">语义切片</span><span className="ymkb-chip">向量化</span><span className="ymkb-chip">图谱构建</span><span className="ymkb-chip">任务可追踪</span></div></div>
+            <button className="ymkb-submit" onClick={() => void handleSubmit()} disabled={submitting || !fileList.length}>{submitting ? '正在提交…' : '开始录入与构建'}</button>
+          </div>
+          <div className="ymkb-input-foot">文件提交后进入后台任务；可在文档列表查看进度、重试和任务历史。</div>
+        </aside>
+        <section className="ymkb-content">
+          <div className="ymkb-steps">{[['文档解析','识别正文与表格结构'],['语义切片','按语义边界保留上下文'],['向量化','写入稠密/稀疏检索索引'],['图谱构建','实体关系与检索链路']].map(([title,note], index) => { const state = indexedCount > 0 ? 'done' : processingCount > 0 && index > 0 ? 'active' : index === 0 && documents.length > 0 ? 'done' : ''; return <div key={title} className={`ymkb-step ${state}`}><span className="ymkb-step-dot">{state === 'done' ? '✓' : index + 1}</span><div><div className="ymkb-step-title">{title}</div><div className="ymkb-step-note">{note}</div></div></div>; })}</div>
+          <div className="ymkb-stats"><div className="ymkb-stat"><div className="ymkb-stat-v">{documents.length}</div><div className="ymkb-stat-l">已录入文档</div></div><div className="ymkb-stat"><div className="ymkb-stat-v">{chunkTotal}</div><div className="ymkb-stat-l">切片总数</div></div><div className="ymkb-stat"><div className="ymkb-stat-v">{indexedCount}</div><div className="ymkb-stat-l">已完成入库</div></div><div className="ymkb-stat"><div className="ymkb-stat-v">{processingCount || failedCount}</div><div className="ymkb-stat-l">处理中 / 失败</div></div></div>
+          <section className="ymkb-card ymkb-section"><div className="ymkb-section-head"><span className="ymkb-section-title">知识图谱、专家知识与智能检索</span><span className="ymkb-section-note">所有查询与入库能力均保留真实 Agent 接口</span></div><div className="ymkb-advanced"><KnowledgeBase /></div></section>
+          <section className="ymkb-card ymkb-list-card"><div className="ant-card-head"><div className="ant-card-head-wrapper"><div className="ant-card-head-title">已录入文档与任务状态</div><div className="ant-card-extra"><div className="ymkb-list-tools"><Search allowClear placeholder="搜索标题、文件名或标签" value={keyword} onChange={(event) => setKeyword(event.target.value)} /><Select value={categoryFilter} onChange={setCategoryFilter} options={[{ label: '全部分类', value: 'all' }, ...CATEGORY_OPTIONS]} /><Select value={statusFilter} onChange={setStatusFilter} options={STATUS_OPTIONS} /></div></div></div></div><div className="ant-card-body">{filteredDocuments.length > 0 ? <Table<KnowledgeDocument> rowKey="id" loading={loading} columns={columns} dataSource={filteredDocuments} pagination={{ pageSize: 8, showSizeChanger: false }} scroll={{ x: 1560 }} /> : <div className="ymkb-empty"><Empty description="当前还没有录入任何知识文档" /></div>}</div></section>
+        </section>
+      </main>
 
       <Drawer
         title={selectedDocument ? `${selectedDocument.title} 的任务历史` : '任务历史'}

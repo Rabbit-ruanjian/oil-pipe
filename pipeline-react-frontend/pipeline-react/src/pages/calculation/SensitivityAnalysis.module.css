@@ -1,87 +1,14 @@
-.calculationLayout {
-  container-type: inline-size;
-  container-name: calc-layout;
-  display: grid;
-  grid-template-columns: minmax(560px, 640px) minmax(0, 1fr);
-  align-items: start;
-  gap: var(--space-6);
-  width: 100%;
-  max-width: none;
-  padding: var(--content-padding-y) var(--space-4);
-  margin: 0;
-}
-
-@container calc-layout (max-width: 1360px) {
-  .calculationLayout {
-    grid-template-columns: minmax(500px, 560px) minmax(0, 1fr);
-  }
-}
-
-@container calc-layout (max-width: 1120px) {
-  .calculationLayout {
-    grid-template-columns: minmax(420px, 1fr) minmax(0, 1fr);
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
-  }
-}
-
-@container calc-layout (max-width: 960px) {
-  .calculationLayout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.paramPanel {
-  min-width: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  align-self: start;
-}
-
-.paramForm :global(.ant-form-item-label) {
-  display: flex;
-  align-items: flex-end;
-  min-height: 44px;
-}
-
-.paramForm :global(.ant-form-item-label > label) {
-  align-items: flex-start;
-  line-height: 1.35;
-  white-space: normal;
-}
-
-@container calc-layout (min-width: 1280px) {
-  .paramForm :global(.ant-form-item-label) {
-    min-height: 0;
-  }
-
-  .paramForm :global(.ant-form-item-label > label) {
-    white-space: nowrap;
-  }
-}
-
-@container calc-layout (min-width: 961px) {
-  .paramPanel {
-    position: sticky;
-    top: calc(var(--header-height) + var(--space-6));
-  }
-}
-
-.resultPanel {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-@container calc-layout (max-width: 960px) {
-  .paramPanel {
-    padding: var(--space-5);
-  }
-
-  .paramForm :global(.ant-form-item-label) {
-    min-height: 0;
-  }
-}
+.calculationLayout { container-type: inline-size; container-name: calc-layout; display: grid; grid-template-columns: minmax(330px, 390px) minmax(0, 1fr); align-items: start; gap: var(--space-5); width: 100%; padding: var(--content-padding-y) clamp(12px, 2vw, 28px); }
+.paramPanel { min-width: 0; padding: var(--space-5); background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); }
+.paramPanel :global(.page-header) { margin-bottom: var(--space-4); }
+.paramForm :global(.ant-form-item-label) { min-height: 0; }
+.paramForm :global(.ant-form-item-label > label) { white-space: normal; line-height: 1.35; }
+.resultPanel { min-width: 0; display: flex; flex-direction: column; gap: var(--space-5); }
+.impactHero { padding: 20px; color: white; border-radius: 20px; background: linear-gradient(135deg, #164e63, #0e7490 46%, #06b6d4); }
+.impactGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.impactCard { padding: 14px 16px; background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: 14px; }
+.impactLabel { color: var(--text-secondary); font-size: 12px; }
+.impactValue { margin-top: 6px; font-size: 23px; font-weight: 700; }
+@container calc-layout (min-width: 961px) { .paramPanel { position: sticky; top: calc(var(--header-height) + var(--space-6)); } }
+@container calc-layout (max-width: 960px) { .calculationLayout { grid-template-columns: 1fr; } }
+@container calc-layout (max-width: 760px) { .impactGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

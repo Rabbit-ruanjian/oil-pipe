@@ -1,14 +1,44 @@
 .workspace {
   display: grid;
-  grid-template-columns: 66px 272px minmax(0, 1fr) 286px;
+  grid-template-columns: 280px minmax(0, 1fr) 320px;
+  grid-template-rows: auto minmax(0, 1fr);
   width: 100%;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: #eaf1fa;
-  color: #132542;
+  background: #f4f7f9;
+  color: #0c2433;
   position: relative;
 }
+
+.assistantTopbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+  min-height: 68px;
+  padding: 10px 24px;
+  border-bottom: 1px solid #e3ecf2;
+  background: rgba(244, 247, 249, .92);
+  backdrop-filter: blur(14px);
+}
+.assistantBrand { display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0; text-align: left; }
+.assistantBrandMark { display: grid; width: 39px; height: 39px; place-items: center; border-radius: 12px; background: linear-gradient(135deg, #0e6e8c, #0fa3c0); color: #fff; box-shadow: 0 4px 12px rgba(14,110,140,.25); }
+.assistantBrandCopy { display: flex; min-width: 0; flex-direction: column; line-height: 1.2; }
+.assistantBrandCopy strong { color: #0c2433; font-size: 17px; letter-spacing: .02em; }
+.assistantBrandCopy small { margin-top: 4px; color: #8aa2b8; font-size: 10px; letter-spacing: .05em; white-space: nowrap; }
+.assistantNav { display: flex; min-width: 0; flex: 1; gap: 3px; overflow-x: auto; }
+.assistantNavItem { display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 11px; border-radius: 9px; color: #45607a; font-size: 12px; font-weight: 600; white-space: nowrap; transition: .18s; }
+.assistantNavItem:hover { color: #0e6e8c; background: #edf3f6; }
+.assistantNavActive { color: #fff; background: #0e6e8c; box-shadow: 0 4px 12px rgba(14,110,140,.2); }
+.assistantNavActive:hover { color: #fff; background: #0e6e8c; }
+.assistantTopActions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.onlineBadge { display: inline-flex; align-items: center; gap: 6px; color: #10a37f; font-size: 11px; white-space: nowrap; }
+.onlineBadge span { width: 7px; height: 7px; border-radius: 50%; background: #10a37f; box-shadow: 0 0 0 3px rgba(16,163,127,.12); }
+.topActionButton { display: grid; width: 31px; height: 31px; place-items: center; border-radius: 8px; color: #8aa2b8; transition: .18s; }
+.topActionButton:hover { color: #0e6e8c; background: #edf3f6; }
+.userAvatar { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: linear-gradient(135deg,#d97706,#e8a33d); color: #fff; font-size: 13px; font-weight: 700; }
 
 .chatColumn,
 .commandColumn {
@@ -24,29 +54,31 @@
 .messageScroller { min-height: 0; flex: 1; scrollbar-gutter: stable; }
 .commandColumn { display: block; border-left: 1px solid #e2e9f2; background: #fff; transition: width 180ms ease, opacity 180ms ease; }
 .commandCollapsed { display: none; }
-.compactNav { display: flex; min-height: 0; flex-direction: column; align-items: center; gap: 3px; border-right: 1px solid #e2e9f2; background: #fff; padding: 12px 0; }
-.compactLogo { display: grid; width: 40px; height: 40px; margin-bottom: 11px; place-items: center; border-radius: 11px; background: linear-gradient(135deg,#d97706,#f59e0b); color: #fff; font-family: Rajdhani, sans-serif; font-size: 19px; font-weight: 900; }
-.compactNavItem { position: relative; display: grid; width: 44px; height: 44px; place-items: center; border-radius: 11px; color: #7188a8; transition: color .15s ease, background .15s ease; }
-.compactNavItem:hover { color: #0891b2; background: #f0f6ff; }
-.compactNavItem:hover::after { content: attr(data-label); position: absolute; z-index: 90; left: 52px; top: 50%; padding: 4px 9px; transform: translateY(-50%); border-radius: 6px; background: #132542; color: #fff; font-size: 11px; white-space: nowrap; pointer-events: none; }
-.compactNavActive { color: #d97706; background: linear-gradient(135deg,#fff7ed,#fff); }
-.compactNavActive::before { content: ''; position: absolute; left: -11px; top: 9px; bottom: 9px; width: 3px; border-radius: 2px; background: #d97706; }
-
 @media (max-width: 1320px) {
-  .workspace { grid-template-columns: 66px 240px minmax(0, 1fr) 270px; }
+  .workspace { grid-template-columns: 250px minmax(0, 1fr) 280px; }
+  .assistantTopbar { padding-inline: 18px; gap: 12px; }
+  .assistantNavItem { padding-inline: 8px; }
 }
 
 @media (max-width: 1100px) {
-  .workspace { grid-template-columns: 66px 232px minmax(0, 1fr); }
+  .workspace { grid-template-columns: 240px minmax(0, 1fr); }
   .commandColumn { display: none; }
+  .assistantTopbar { grid-column: 1 / -1; }
+  .assistantNavItem { padding-inline: 9px; }
+  .assistantBrandCopy small { display: none; }
 }
 
 @media (max-width: 760px) {
-  .workspace { display: grid; grid-template-columns: 56px minmax(0, 1fr); padding: 0; background: #fff; }
+  .workspace { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); padding: 0; background: #fff; }
   .workspace > :nth-child(2) { display: none; }
-  .compactNav { padding-top: 8px; }
-  .compactLogo { width: 38px; height: 38px; }
-  .compactNavItem { width: 40px; height: 40px; }
+  .assistantTopbar { padding: 9px 12px; gap: 8px; overflow: hidden; }
+  .assistantBrandCopy { display: none; }
+  .assistantBrandMark { width: 36px; height: 36px; }
+  .assistantNav { gap: 2px; }
+  .assistantNavItem { height: 34px; padding-inline: 8px; font-size: 11px; }
+  .assistantNavItem svg { display: none; }
+  .onlineBadge { display: none; }
+  .topActionButton { display: none; }
   .chatColumn { height: 100%; }
 }
 

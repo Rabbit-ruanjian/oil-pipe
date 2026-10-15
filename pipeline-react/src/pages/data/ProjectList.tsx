@@ -257,9 +257,10 @@ export default function ProjectList() {
               <div className={styles.headerInfo}>
                 <h1 className={styles.title}>
                   <span className={styles.titleAccent}>数据管理</span>
+                  <span className={styles.titleTag}>统一数据中台</span>
                 </h1>
                 <p className={styles.subtitle}>
-                  项目、管道、泵站与油品主数据
+                  统一管理项目、管道、泵站与油品物性等基础数据，为水力分析、敏感性分析与泵站优化提供一致的参数源。
                 </p>
               </div>
               <div className={styles.headerActions}>

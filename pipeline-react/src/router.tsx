@@ -20,7 +20,7 @@ const SensitivityAnalysis = lazy(() => import('./pages/calculation/SensitivityAn
 
 const Report = lazy(() => import('./pages/report/Report'));
 const AIChat = lazy(() => import('./pages/ai/AIChat'));
-const ReportPreview = lazy(() => import('./pages/ai/ReportPreview'));
+const ReportPreview = lazy(() => import('./pages/ai/ReportWorkspace'));
 const ReportHistoryDetail = lazy(async () => {
   const module = await import('./pages/ai/ReportPreview');
   return { default: module.ReportHistoryDetailPage };

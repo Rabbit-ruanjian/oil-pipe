@@ -2,86 +2,32 @@
   container-type: inline-size;
   container-name: calc-layout;
   display: grid;
-  grid-template-columns: minmax(560px, 640px) minmax(0, 1fr);
+  grid-template-columns: minmax(330px, 390px) minmax(0, 1fr);
   align-items: start;
-  gap: var(--space-6);
+  gap: var(--space-5);
   width: 100%;
-  max-width: none;
-  padding: var(--content-padding-y) var(--space-4);
-  margin: 0;
+  padding: var(--content-padding-y) clamp(12px, 2vw, 28px);
 }
-
-@container calc-layout (max-width: 1360px) {
-  .calculationLayout {
-    grid-template-columns: minmax(500px, 560px) minmax(0, 1fr);
-  }
-}
-
-@container calc-layout (max-width: 1120px) {
-  .calculationLayout {
-    grid-template-columns: minmax(420px, 1fr) minmax(0, 1fr);
-    padding-left: var(--space-3);
-    padding-right: var(--space-3);
-  }
-}
-
-@container calc-layout (max-width: 960px) {
-  .calculationLayout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.paramPanel {
-  min-width: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: var(--space-6);
-  align-self: start;
-}
-
-.paramForm :global(.ant-form-item-label) {
-  display: flex;
-  align-items: flex-end;
-  min-height: 44px;
-}
-
-.paramForm :global(.ant-form-item-label > label) {
-  align-items: flex-start;
-  line-height: 1.35;
-  white-space: normal;
-}
-
-@container calc-layout (min-width: 1280px) {
-  .paramForm :global(.ant-form-item-label) {
-    min-height: 0;
-  }
-
-  .paramForm :global(.ant-form-item-label > label) {
-    white-space: nowrap;
-  }
-}
-
-@container calc-layout (min-width: 961px) {
-  .paramPanel {
-    position: sticky;
-    top: calc(var(--header-height) + var(--space-6));
-  }
-}
-
-.resultPanel {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-}
-
-@container calc-layout (max-width: 960px) {
-  .paramPanel {
-    padding: var(--space-5);
-  }
-
-  .paramForm :global(.ant-form-item-label) {
-    min-height: 0;
-  }
-}
+.paramPanel { min-width: 0; padding: var(--space-5); background: var(--bg-elevated); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); }
+.paramPanel :global(.page-header) { margin-bottom: var(--space-4); }
+.paramPanel :global(.page-header h2) { letter-spacing: -0.02em; }
+.paramForm :global(.ant-form-item-label) { min-height: 0; }
+.paramForm :global(.ant-form-item-label > label) { white-space: normal; line-height: 1.35; }
+.scenarioCard { background: linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(15, 23, 42, 0.02)); border: 1px solid rgba(34, 211, 238, 0.18); }
+.metricGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.metricCard { min-height: 96px; padding: 14px 16px; color: #e2e8f0; border-radius: 16px; background: linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(30, 41, 59, 0.72)); box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12); }
+.metricLabel { margin-bottom: 8px; color: #94a3b8; font-size: 12px; }
+.metricValue { font-size: clamp(20px, 2.2vw, 30px); font-weight: 700; letter-spacing: -0.04em; }
+.metricHint { margin-top: 4px; color: #94a3b8; font-size: 11px; }
+.decisionBanner { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 20px; color: white; border-radius: 18px; background: linear-gradient(120deg, rgba(14, 116, 144, 0.95), rgba(30, 64, 175, 0.92)); }
+.pipelineScene { position: relative; min-height: 150px; overflow: hidden; padding: 18px; color: #e0f2fe; border-radius: 18px; background: radial-gradient(circle at 12% 82%, rgba(34, 211, 238, 0.28), transparent 35%), linear-gradient(145deg, #0f172a, #172554 56%, #082f49); }
+.pipelineLine { position: absolute; left: 7%; right: 7%; top: 58%; height: 6px; border-radius: 999px; background: linear-gradient(90deg, #22d3ee, #38bdf8 48%, #fbbf24); box-shadow: 0 0 24px rgba(34, 211, 238, 0.75); }
+.pipelineNode { position: absolute; top: calc(58% - 11px); width: 22px; height: 22px; border: 4px solid #082f49; border-radius: 50%; background: #f8fafc; box-shadow: 0 0 0 4px rgba(125, 211, 252, 0.3), 0 0 18px rgba(125, 211, 252, 0.9); }
+.pipelineNodeStart { left: 6%; }
+.pipelineNodeEnd { right: 6%; }
+.flowDot { position: absolute; top: calc(58% - 3px); width: 12px; height: 12px; border-radius: 50%; background: #fef3c7; box-shadow: 0 0 14px #fef3c7; animation: flow 3s linear infinite; }
+@keyframes flow { from { left: 8%; } to { left: 89%; } }
+.resultPanel { min-width: 0; display: flex; flex-direction: column; gap: var(--space-5); }
+@container calc-layout (min-width: 961px) { .paramPanel { position: sticky; top: calc(var(--header-height) + var(--space-6)); } }
+@container calc-layout (max-width: 960px) { .calculationLayout { grid-template-columns: 1fr; } }
+@container calc-layout (max-width: 760px) { .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .decisionBanner { align-items: flex-start; flex-direction: column; } }

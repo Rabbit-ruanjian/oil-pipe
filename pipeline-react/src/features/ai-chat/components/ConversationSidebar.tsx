@@ -22,7 +22,7 @@ export function ConversationSidebar({ conversations, activeConversationId, onCre
   return (
     <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-[#e2e9f2] bg-white px-3 py-3.5">
       <div className="flex items-center gap-2.5 px-1.5 pb-3.5 pt-1">
-        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] bg-[linear-gradient(135deg,#7c3aed,#06b6d4)] text-white">
+        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[11px] bg-[linear-gradient(135deg,#0e6e8c,#0fa3c0)] text-white">
           <Sparkles className="h-[19px] w-[19px]" />
         </div>
         <div className="min-w-0">
@@ -32,7 +32,7 @@ export function ConversationSidebar({ conversations, activeConversationId, onCre
         <span className="ml-auto rounded-full bg-[#ecfdf5] px-2 py-0.5 text-[9px] font-bold text-[#059669]">AI</span>
       </div>
 
-      <button type="button" onClick={onCreate} className="mb-2.5 inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-[linear-gradient(135deg,#d97706,#f59e0b)] px-3 text-[12.5px] font-bold text-white transition hover:brightness-105">
+      <button type="button" onClick={onCreate} className="mb-2.5 inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-[linear-gradient(135deg,#0e6e8c,#0fa3c0)] px-3 text-[12.5px] font-bold text-white shadow-[0_5px_14px_rgba(14,110,140,.2)] transition hover:brightness-105">
         <MessageSquarePlus className="h-[15px] w-[15px]" />
         新建会话
       </button>
@@ -50,7 +50,7 @@ export function ConversationSidebar({ conversations, activeConversationId, onCre
         {filteredConversations.map((conversation) => {
           const active = conversation.id === activeConversationId;
           return (
-            <div key={conversation.id} className={['group relative mb-1 rounded-[9px] border-l-[3px] px-2.5 py-2.5 transition', active ? 'border-l-[#d97706] bg-[linear-gradient(90deg,#fff7ed,#fff)]' : 'border-l-transparent hover:bg-[#f4f8fe]'].join(' ')}>
+            <div key={conversation.id} className={['group relative mb-1 rounded-[9px] border-l-[3px] px-2.5 py-2.5 transition', active ? 'border-l-[#0e6e8c] bg-[rgba(14,110,140,.08)]' : 'border-l-transparent hover:bg-[#f4f8fe]'].join(' ')}>
               <button type="button" className="block w-full pr-7 text-left" onClick={() => onSelect(conversation.id)}>
                 <div className="truncate text-[11.5px] font-semibold text-[#132542]">{conversation.title}</div>
                 <div className="mt-1 text-[9.5px] text-[#94a3b8]">{formatConversationTime(conversation.updatedAt)}</div>

@@ -68,7 +68,7 @@ export function ContextRail({ plan, logs, metrics, activeTools, currentStep, sta
   return (
     <div className="flex h-full min-h-0 flex-col bg-white">
       <div className="flex items-center justify-between border-b border-[#e2e9f2] px-4 py-[15px]">
-        <h2 className="text-[13px] font-bold text-[#132542]">指挥台 · 实时执行</h2>
+        <h2 className="text-[13px] font-bold text-[#132542]">执行日志 · 实时状态</h2>
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[#ecfdf5] px-2.5 py-1 text-[10px] font-bold text-[#059669]">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#059669]" />
           LIVE

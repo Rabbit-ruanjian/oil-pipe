@@ -86,7 +86,7 @@ export function ComposerDock({
               type="button"
               onClick={onSubmit}
               disabled={!draft.trim()}
-              className="inline-flex h-[46px] shrink-0 items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#d97706,#f59e0b)] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(217,119,6,.2)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-[#d8e1ec] disabled:shadow-none"
+              className="inline-flex h-[46px] shrink-0 items-center gap-2 rounded-xl bg-[linear-gradient(135deg,#0e6e8c,#0fa3c0)] px-5 text-sm font-bold text-white shadow-[0_8px_18px_rgba(14,110,140,.2)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:bg-[#d8e1ec] disabled:shadow-none"
             >
               <SendHorizontal className="h-4 w-4" />
               <span className="hidden sm:inline">发送</span>

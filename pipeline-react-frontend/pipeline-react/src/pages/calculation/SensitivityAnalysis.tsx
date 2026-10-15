@@ -252,6 +252,17 @@ export default function SensitivityAnalysis() {
     );
   }, [result, selectedVariableType]);
 
+  const impactSummary = useMemo(() => {
+    if (!activeVariableResult || !result) return null;
+    const points = activeVariableResult.dataPoints;
+    const basePressure = Number(result.baseResult.endStationInPressure);
+    const lowest = points.reduce((current, item) => Number(item.endStationPressure) < Number(current.endStationPressure) ? item : current, points[0]);
+    const highest = points.reduce((current, item) => Number(item.endStationPressure) > Number(current.endStationPressure) ? item : current, points[0]);
+    const pressureRange = Number(highest.endStationPressure) - Number(lowest.endStationPressure);
+    const action = Number(lowest.endStationPressure) < 0 ? '当前变量变化可能导致末站压力不足，建议优先控制该变量的上升幅度。' : activeVariableResult.maxImpactPercent >= 20 ? '该变量对运行状态影响明显，建议纳入日常调度重点监控。' : '该变量在当前区间内影响较小，可作为次要调节变量。';
+    return { basePressure, lowest, highest, pressureRange, action };
+  }, [activeVariableResult, result]);
+
   const chartOption = useMemo(() => {
     if (!activeVariableResult) {
       return null;
@@ -327,8 +338,8 @@ export default function SensitivityAnalysis() {
       <div className={styles.calculationLayout}>
         <div className={styles.paramPanel}>
           <div className="page-header">
-            <h2><BarChartOutlined /> 敏感性分析</h2>
-            <p>直接调用后端敏感性分析引擎，评估关键参数变化对输送工况的影响。压头与扬程单位均为 m，当前仅展示已实现变量。</p>
+            <h2><BarChartOutlined /> 情景影响与运行体检</h2>
+            <p>保留后端敏感性计算，新增压力、摩阻和运行风险的情景解释。AI 原因分析与操作建议统一放入智能报告。</p>
           </div>
 
           <Card title="分析参数" className="page-card">
@@ -424,29 +435,18 @@ export default function SensitivityAnalysis() {
                 <Col span={12}><Form.Item name="pump375Head" label="ZMI375 单泵扬程(m)" rules={[{ required: true }]}><InputNumber min={0} precision={2} style={{ width: '100%' }} /></Form.Item></Col>
               </Row>
               <Button type="primary" htmlType="submit" loading={loading} icon={<BarChartOutlined />} block>
-                开始分析
+                生成情景体检
               </Button>
             </Form>
           </Card>
         </div>
 
         <div className={styles.resultPanel}>
-          {result && activeVariableResult ? (
+          {result && activeVariableResult && impactSummary ? (
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
-              <Card
-                title="分析结论"
-                className="page-card"
-                extra={<Tag color={activeVariableResult.maxImpactPercent >= 20 ? 'warning' : 'success'}>{activeVariableResult.trend === 'POSITIVE' ? '正相关' : activeVariableResult.trend === 'NEGATIVE' ? '负相关' : activeVariableResult.trend === 'MIXED' ? '混合' : '未知'}</Tag>}
-              >
-                <Descriptions column={2} bordered>
-                  <Descriptions.Item label="基准流态">{result.baseResult.flowRegime}</Descriptions.Item>
-                  <Descriptions.Item label="基准雷诺数">{result.baseResult.reynoldsNumber}</Descriptions.Item>
-                  <Descriptions.Item label="基准末站进站压头">{result.baseResult.endStationInPressure}</Descriptions.Item>
-                  <Descriptions.Item label="敏感系数">{activeVariableResult.sensitivityCoefficient}</Descriptions.Item>
-                  <Descriptions.Item label="最大影响幅度">{activeVariableResult.maxImpactPercent}%</Descriptions.Item>
-                  <Descriptions.Item label="总计算次数">{result.totalCalculations}</Descriptions.Item>
-                </Descriptions>
-              </Card>
+              <div className={styles.impactHero}><div style={{ fontSize: 12, opacity: 0.78 }}>当前情景体检</div><div style={{ fontSize: 25, fontWeight: 700, marginTop: 6 }}>{activeVariableResult.variableName}是当前调节重点</div><div style={{ marginTop: 8, opacity: 0.88 }}>{impactSummary.action}</div></div>
+              <div className={styles.impactGrid}><div className={styles.impactCard}><div className={styles.impactLabel}>敏感系数</div><div className={styles.impactValue}>{Number(activeVariableResult.sensitivityCoefficient).toFixed(2)}</div></div><div className={styles.impactCard}><div className={styles.impactLabel}>压力影响范围</div><div className={styles.impactValue}>{impactSummary.pressureRange.toFixed(2)} m</div></div><div className={styles.impactCard}><div className={styles.impactLabel}>最不利压力</div><div className={styles.impactValue}>{Number(impactSummary.lowest.endStationPressure).toFixed(2)} m</div></div><div className={styles.impactCard}><div className={styles.impactLabel}>最大影响幅度</div><div className={styles.impactValue}>{Number(activeVariableResult.maxImpactPercent).toFixed(1)}%</div></div></div>
+              <Card title="基础计算证据" className="page-card"><Descriptions column={2} bordered><Descriptions.Item label="基准流态">{result.baseResult.flowRegime}</Descriptions.Item><Descriptions.Item label="基准雷诺数">{result.baseResult.reynoldsNumber}</Descriptions.Item><Descriptions.Item label="基准末站进站压头">{result.baseResult.endStationInPressure}</Descriptions.Item><Descriptions.Item label="变化趋势">{activeVariableResult.trend === 'POSITIVE' ? '正相关' : activeVariableResult.trend === 'NEGATIVE' ? '负相关' : activeVariableResult.trend === 'MIXED' ? '混合' : '未知'}</Descriptions.Item><Descriptions.Item label="总计算次数">{result.totalCalculations}</Descriptions.Item><Descriptions.Item label="报告入口">请前往“智能报告”生成原因、依据与操作建议</Descriptions.Item></Descriptions></Card>
 
               <Card title="敏感性曲线" className="page-card">
                 {chartOption && <ReactECharts option={chartOption} style={{ height: 320 }} />}

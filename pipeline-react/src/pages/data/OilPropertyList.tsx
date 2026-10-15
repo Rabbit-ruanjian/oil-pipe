@@ -241,9 +241,10 @@ export default function OilPropertyList() {
           <div className={styles.headerTop}>
             <div className={styles.headerInfo}>
               <h1 className={styles.title}>
-                <span className={styles.titleAccent}>油品特性</span>
+                <span className={styles.titleAccent}>数据管理</span>
+                <span className={styles.titleTag}>统一数据中台</span>
               </h1>
-              <p className={styles.subtitle}>管理油品物性参数，突出名称、密度与运动粘度等核心指标。</p>
+              <p className={styles.subtitle}>统一管理项目、管道、泵站与油品物性等基础数据，为水力分析、敏感性分析与泵站优化提供一致的参数源。</p>
             </div>
             <div className={styles.headerActions}>
               <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} size="middle">

@@ -1,5 +1,5 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Bookmark, Bot, ChevronDown, Clock3, Database, Settings2, Zap } from 'lucide-react';
+import { BarChart3, Bot, ChevronDown, Database, Download, FileText, Gauge, Home, Library, MessageSquare, Trash2, Zap } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import AnimatedPage from '../../components/common/AnimatedPage';
 import { HITLDialog } from '../../components/agent';
@@ -34,30 +34,48 @@ function buildOutboundMessage(content: string, mode: 'standard' | 'diagnosis' | 
 }
 
 const CHAT_NAV_ITEMS = [
-  { path: '/dashboard', label: '首页总览', icon: Clock3 },
-  { path: '/data/project', label: '项目·管道·泵站', icon: Database },
+  { path: '/dashboard', label: '首页总览', icon: Home },
+  { path: '/data/project', label: '项目管理', icon: Database },
   { path: '/analysis/hydraulic', label: '水力分析', icon: Zap },
-  { path: '/analysis/optimization', label: '泵站优化', icon: Settings2 },
   { path: '/analysis/sensitivity', label: '敏感性分析', icon: BarChart3 },
-  { path: '/ai/chat', label: '智能对话', icon: Bot },
-  { path: '/ai/report', label: '智能报告', icon: Bookmark },
+  { path: '/analysis/optimization', label: '泵站优化', icon: Gauge },
+  { path: '/ai/chat', label: '智能助手', icon: MessageSquare },
+  { path: '/ai/report', label: '智能报告', icon: FileText },
+  { path: '/ai/hub', label: '知识库', icon: Library },
 ];
 
-function CompactNavigation() {
+interface AssistantTopbarProps {
+  onClear: () => void;
+  onExport: () => void;
+}
+
+function AssistantTopbar({ onClear, onExport }: AssistantTopbarProps) {
   const navigate = useNavigate();
   const location = useLocation();
   return (
-    <nav className={styles.compactNav} aria-label="主导航">
-      <button type="button" className={styles.compactLogo} onClick={() => navigate('/dashboard')} aria-label="返回首页">N</button>
+    <header className={styles.assistantTopbar}>
+      <button type="button" className={styles.assistantBrand} onClick={() => navigate('/dashboard')} aria-label="返回首页">
+        <span className={styles.assistantBrandMark}><Bot size={21} strokeWidth={2.2} /></span>
+        <span className={styles.assistantBrandCopy}><strong>油脉智衡</strong><small>输油管网水力能效决策平台</small></span>
+      </button>
+      <nav className={styles.assistantNav} aria-label="主导航">
       {CHAT_NAV_ITEMS.map((item) => {
         const Icon = item.icon;
         return (
-          <button key={item.path} type="button" className={[styles.compactNavItem, location.pathname === item.path ? styles.compactNavActive : ''].join(' ')} onClick={() => navigate(item.path)} aria-label={item.label} data-label={item.label}>
-            <Icon size={19} strokeWidth={2} />
+          <button key={item.path} type="button" className={[styles.assistantNavItem, location.pathname === item.path ? styles.assistantNavActive : ''].join(' ')} onClick={() => navigate(item.path)}>
+            <Icon size={15} strokeWidth={2} />
+            <span>{item.label}</span>
           </button>
         );
       })}
-    </nav>
+      </nav>
+      <div className={styles.assistantTopActions}>
+        <span className={styles.onlineBadge}><span />AI 智能体在线</span>
+        <button type="button" className={styles.topActionButton} onClick={onClear} title="清除当前对话"><Trash2 size={15} /></button>
+        <button type="button" className={styles.topActionButton} onClick={onExport} title="导出当前对话"><Download size={15} /></button>
+        <span className={styles.userAvatar}>管</span>
+      </div>
+    </header>
   );
 }
 
@@ -142,6 +160,17 @@ export default function AIChat() {
 
   const activeMode = activeConversation?.mode ?? 'standard';
 
+  const exportConversation = () => {
+    const lines = messages.map((message) => `### ${message.role === 'user' ? '运行调度员' : '油脉智衡 · 智能体'}\n\n${message.content}`).join('\n\n');
+    const blob = new Blob([`# 油脉智衡 · 智能助手\n\n${lines || '暂无对话内容'}`], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${activeConversation?.title ?? '智能助手对话'}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
   const sendMessage = (text: string) => {
     const content = text.trim();
     if (!content || busy) return;
@@ -189,7 +218,13 @@ export default function AIChat() {
 
   return (
     <AnimatedPage className={styles.workspace}>
-      <CompactNavigation />
+      <AssistantTopbar
+        onClear={() => {
+          reset();
+          setDraft('');
+        }}
+        onExport={exportConversation}
+      />
 
       <ConversationSidebar
         conversations={conversations}
