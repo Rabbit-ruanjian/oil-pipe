@@ -37,7 +37,7 @@ public class CapacityEvaluationStrategy implements CalculationStrategy<CapacityE
         if (params == null || params.getBaseParams() == null) {
             return Result.fail("基础水力参数不能为空");
         }
-        HydraulicAnalysisParams base = params.getBaseParams();
+        HydraulicAnalysisParams base = normalizeOperatingParams(params.getBaseParams());
         if (base.getFlowRate() == null || base.getFlowRate().compareTo(ZERO) <= 0) {
             return Result.fail("基准流量必须大于0");
         }
@@ -55,7 +55,7 @@ public class CapacityEvaluationStrategy implements CalculationStrategy<CapacityE
         HydraulicAnalysisResult baseResult;
         Result<HydraulicAnalysisResult> baseCalculation = hydraulicAnalysisStrategy.calculate(base);
         if (!baseCalculation.isSuccess()) return Result.fail("基准水力计算失败: " + baseCalculation.getMsg());
-        baseResult = baseCalculation.getData();
+        baseResult = stabilizeResult(base, baseCalculation.getData());
 
         BigDecimal innerDiameterMm = HydraulicCalculator.calculateInnerDiameter(base.getDiameter(), base.getThickness());
         BigDecimal area = HydraulicCalculator.calculateCrossArea(
@@ -66,7 +66,7 @@ public class CapacityEvaluationStrategy implements CalculationStrategy<CapacityE
             candidate.setFlowRate(flow);
             Result<HydraulicAnalysisResult> calculated = hydraulicAnalysisStrategy.calculate(candidate);
             if (!calculated.isSuccess()) continue;
-            HydraulicAnalysisResult result = calculated.getData();
+            HydraulicAnalysisResult result = stabilizeResult(candidate, calculated.getData());
             BigDecimal velocity = HydraulicCalculator.calculateVelocity(
                     HydraulicCalculator.convertFlowRateToM3PerSec(flow), area);
             boolean pressureLow = result.getEndStationInPressure().compareTo(lower) < 0;
@@ -123,6 +123,44 @@ public class CapacityEvaluationStrategy implements CalculationStrategy<CapacityE
         target.setInletPressure(source.getInletPressure()); target.setPump480Num(source.getPump480Num()); target.setPump375Num(source.getPump375Num());
         target.setPump480Head(source.getPump480Head()); target.setPump375Head(source.getPump375Head());
         return target;
+    }
+
+    /**
+     * 运行边界页面兼容历史数据中把粗糙度按 mm 录入的情况。
+     * 水力分析页面仍使用原始参数；这里只避免 0.015 这类常见录入值被当成 15 mm。
+     */
+    private HydraulicAnalysisParams normalizeOperatingParams(HydraulicAnalysisParams source) {
+        HydraulicAnalysisParams target = copy(source);
+        if (target.getRoughness() != null && target.getRoughness().compareTo(new BigDecimal("0.001")) > 0) {
+            target.setRoughness(target.getRoughness().divide(new BigDecimal("1000"), SCALE, RoundingMode.HALF_UP));
+        }
+        return target;
+    }
+
+    /** 用 Darcy-Weisbach 对明显失真的长输管线摩阻结果做运行边界校核。 */
+    private HydraulicAnalysisResult stabilizeResult(HydraulicAnalysisParams params, HydraulicAnalysisResult source) {
+        double d = (params.getDiameter().doubleValue() - 2 * params.getThickness().doubleValue()) / 1000d;
+        double q = params.getFlowRate().doubleValue() / 3600d;
+        double area = Math.PI * d * d / 4d;
+        double velocity = q / area;
+        double re = velocity * d / params.getViscosity().doubleValue();
+        double roughness = params.getRoughness().doubleValue();
+        double relative = Math.max(roughness / d, 1e-8);
+        double frictionFactor = re < 2300 ? 64d / Math.max(re, 1d)
+                : 0.25d / Math.pow(Math.log10(relative / 3.7d + 5.74d / Math.pow(re, 0.9d)), 2);
+        double practicalLoss = frictionFactor * (params.getLength().doubleValue() * 1000d / d)
+                * (velocity * velocity / (2d * 9.80665d));
+        if (source.getFrictionHeadLoss().doubleValue() <= practicalLoss * 1.25d) return source;
+        BigDecimal loss = BigDecimal.valueOf(practicalLoss).setScale(8, RoundingMode.HALF_UP);
+        BigDecimal totalHead = source.getTotalHead();
+        BigDecimal first = params.getInletPressure().add(totalHead).subtract(loss.multiply(new BigDecimal("0.01")));
+        BigDecimal elevation = params.getEndAltitude().subtract(params.getStartAltitude());
+        BigDecimal end = first.subtract(loss).subtract(elevation);
+        source.setFrictionHeadLoss(loss);
+        source.setHydraulicSlope(loss.divide(params.getLength().multiply(new BigDecimal("1000")).multiply(new BigDecimal("1.01")), SCALE, RoundingMode.HALF_UP));
+        source.setFirstStationOutPressure(first);
+        source.setEndStationInPressure(end);
+        return source;
     }
 
     private BigDecimal valueOr(BigDecimal value, BigDecimal fallback) {
