@@ -157,6 +157,10 @@ public class CalculationController {
         } catch (JsonProcessingException e) {
             log.warn("序列化计算入参失败: type={}", calcType, e);
             return null;
+        } catch (RuntimeException e) {
+            // 计算接口不应因历史记录数据库暂时不可用而无法返回实时结果。
+            log.warn("保存计算历史失败，将继续执行实时计算: type={}", calcType, e);
+            return null;
         }
     }
 
@@ -175,6 +179,8 @@ public class CalculationController {
             }
         } catch (JsonProcessingException e) {
             log.warn("序列化计算结果失败: historyId={}", historyId, e);
+        } catch (RuntimeException e) {
+            log.warn("更新计算历史失败，不影响实时计算结果: historyId={}", historyId, e);
         }
     }
 }
